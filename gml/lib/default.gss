@@ -1,0 +1,277 @@
+/*
+.gss 	gss style sheets?
+
+basic format same as css
+selector { property:value; ... }
+
+selectors:
+gui
+button
+label
+...etc
+
+variants:
+a,b { ... } apply to multiple element types
+[a].class { ... } apply to elements of a given class, optionally elements of type of class
+
+a:state { ... }  apply to elements of type a with specified state
+			recognized states: enabled, disabled, checked, focus, empty
+
+selector!1	apply if drawing to monochrome display only
+selector!4 	apply if drawing to 4bit color display
+selector!8	apply if drawing to 8bit color display
+
+in determining which apply, depth is the highest precedent; a !1 will be applied in a 1bit color
+situation even if it is a generic * specifier base before a non-depth-specific specifier applies,
+even if that one has a matching class or state
+
+depth+state+class, depth+state, depth+class, depth+element, depth, state+class, state, class, element, *
+
+-find all matching base element (including *)
+-if any match depth, remove all not matching depth
+-if any match state, remove all not matching state
+-if any match class, remove all not matching class
+-if any match element, remove all matching *
+-... the fuck. No. Remove? so I'm generating and pruning a tree every time I do this?
+
+/search/ tree.
+tree sorted by depth, state, class, then element.
+So, go to branch for depth, or if none match, general depth;
+go to branch for state, or if none, general state
+go to branch for class, or if none, general class
+go to branch for element, or if none, *
+at any point if no branches exist, back up and generalize
+only if NOTING matches at any level do you go from an embedded style to the active style and then default style
+actually... no. Build up tree in stages. Load default tree, then overlay/replace with active, then embedded.
+
+
+
+#id {...} 	element with specified id
+* 	special wildcard selector, applies to everything.
+
+line chars
+  l-r           0x2500
+  u-d           0x2502
+  d-r           0x250c
+  d-l           0x2510
+  u-r           0x2514
+  u-l           0x2518
+  u-d-r         0x251c
+  u-d-l         0x2524
+  d-l-r         0x252c
+  u-l-r         0x2534
+  u-d-l-r       0x253c
+  dl-dr         0x2550
+  du-dd         0x2551
+  d-dr          0x2552
+  dd-r          0x2553
+  dd-dr         0x2554
+  d-dl          0x2555
+  dd-l          0x2556
+  dd-dl         0x2557
+  u-dr          0x2558
+  du-r          0x2559
+  du-dr         0x255a
+  u-dl          0x255b
+  du-l          0x255c
+  du-dl         0x255d
+  u-d-dr        0x255e
+  du-dd-r       0x255f
+  du-dd-dr      0x2560
+  u-d-dl        0x2561
+  du-dd-l       0x2562
+  du-dd-dl      0x2563
+  d-dl-dr       0x2564
+  dd-l-r        0x2565
+  dd-dl-dr      0x2566
+  u-dl-dr       0x2567
+  du-l-r        0x2568
+  du-dl-dr      0x2569
+  u-d-dl-dr     0x256a
+  du-dd-l-r     0x256b
+  du-dd-dl-dr   0x256c
+  
+half-blocks
+  top           0x2580
+  bottom        0x2584
+  left          0x258c
+  right         0x2590
+  
+gradients:
+  25%           0x2591
+  50%           0x2592
+  75%           0x2493
+  
+arrows-triangle:
+  up            0x25b2
+  right         0x25ba
+  down          0x25bc
+  left          0x25c4
+
+arrows-full:
+  left:         0x2190
+  up:           0x2191
+  right:        0x2192
+  down:         0x2193
+  l/r:          0x2194
+  u/d:          0x2195
+  u/d f:        0x21a8
+
+suits:
+  spade         0x2660
+  club          0x2663
+  heart         0x2665
+  diamond       0x2666
+
+greek letters:
+  gamma         0x0393
+  theta         0x0398
+  sigma         0x03a3
+  phi           0x03a6
+  omega         0x03a9
+  s. alpha      0x03b1
+  s. delta      0x03b4
+  s.epsilon     0x03b5
+  s. pi         0x03c0
+  s. sigma      0x03c3
+  s. tau        0x03c4
+  s, phi?       0x03c6 (looks more like capital phi, but distinct from phi above)
+
+misc:
+  small dot     0x221a
+  inv. dot      0x25d8
+  root(check)   0x221b
+  infinity      0x221e
+  similar       0x2248
+  triple bar    0x2261    (scroll bar grip?)
+  <=            0x2264
+  >=            0x2265
+  solid         0x2588
+  circle        0x25cb
+  inv. circle   0x25d9
+  smile open    0x263a
+  smile fill    0x253b
+  sun?          0x263c
+  female        0x2640
+  male          0x2642
+  "house"       0x2302
+  single note   0x266a
+  double note   0x266b
+  
+*/
+/* default style for gml gui library */
+
+* {
+  fill-ch: " ";
+
+  border: false;
+  border-top: false;
+  border-bottom: false;
+  border-left: false;
+  border-right: false;
+
+  border-ch: " ";
+  border-ch-top: 0x2500;
+  border-ch-bottom: 0x2500;
+  border-ch-left: 0x2502;
+  border-ch-right: 0x2502;
+  border-ch-topleft: 0x250c;
+  border-ch-bottomleft: 0x2514;
+  border-ch-topright: 0x2510;
+  border-ch-bottomright: 0x2518;
+
+}
+
+gui {
+  border: true;
+  border-top: true;
+  border-buttom: true;
+  border-left: true;
+  border-right: true;
+
+  fill-color-fg: 0xffffff;
+  fill-color-bg: 0xb4b4b4;
+  fill-ch: " ";
+  
+  border-color-fg: 0xffffff;
+  border-color-bg: 0xb4b4b4;  
+  border-ch-top: 0x2550;
+  border-ch-bottom: 0x2550;
+  border-ch-left: 0x2551;
+  border-ch-right: 0x2551;
+  border-ch-corner-topleft: 0x2554;
+  border-ch-corner-bottomleft: 0x255a;
+  border-ch-corner-topright: 0x2557;
+  border-ch-corner-bottomright: 0x255d;
+}
+
+label {
+  border: false;
+  text-color: 0xffffff;
+  text-background: 0xb4b4b4;
+ 
+}
+
+button {
+  text-color: 0xffffff;
+  text-background: 0x000080;
+  fill-color-fg: 0xb4b4b4;
+  fill-color-bg: 0x000080;
+  border: false;
+  border-left: false;
+  border-right: false;
+  border-top: false;
+  border-bottom: false;
+  border-color-bg: 0x000080;
+  border-color-fg: 0xb4b4b4;
+  border-ch-left: "[";
+  border-ch-right: "]";  
+}
+ 
+button:focus {
+  text-color: 0xffffff;
+  text-background: 0x0000ff;
+  fill-color-fg: 0xffffff;
+  fill-color-bg: 0x0000ff;
+  border-color-bg: 0x0000ff;
+  border-color-fg: 0xffffff;
+  border: true;
+  border-left: true;
+  border-right: true;
+}
+
+textfield, textbox {
+  selected-color: 0xffffff;
+  selected-background: 0x0000ff;
+  text-color: 0xffffff;
+  text-background: 0x5a5a5a;  
+}
+
+
+textbox:focus, textfield:focus {
+  text-color: 0xffffff;
+  text-background: 0x000000;  
+}
+
+
+scrollbar {
+  button-color-fg: 0xffffff;
+  button-color-bg: 0x0000ff;
+  button-ch-up: "^";
+  button-ch-down: "v";
+  button-ch-left: "<";
+  button-ch-right: ">";
+  grip-v-char:	"-";
+  grip-h-char: "|";
+  grip-color-fg: 0xffffff;
+  grip-color-bg: 0x000080;
+}
+
+label.listbox {
+
+
+}
+
+listbox {
+
+}
