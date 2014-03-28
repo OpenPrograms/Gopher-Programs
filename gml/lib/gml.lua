@@ -1028,7 +1028,8 @@ local function addTextField(gui,x,y,width)
             event.cancel(tf.dragTimer)
           end
           tf.dragTimer=event.timer(dragRate,function()
-              tf.cursorIndex=math.max(math.min(tf.cursorIndex+dragStep,#tf.text+1),1)
+              assert(tf.gui.running)
+                tf.cursorIndex=math.max(math.min(tf.cursorIndex+dragStep,#tf.text+1),1)
               if tf.cursorIndex<tf.scrollIndex then
                 tf.scrollIndex=tf.cursorIndex
               elseif tf.cursorIndex>tf.scrollIndex+tf.width-2 then
