@@ -1,33 +1,14 @@
 --[[*********************************************
 
-gui element module
+gui library
 
+by GopherAtl
 
-todo list:
-extension of features/refactor:
--separate border code from button, add frame to gui
+do whatever you want, just don't be a dick. Give me credit whenever you redistribute, modified or otherwise.
 
-new features:
--implement gml loader, parsing gml files and outputing executable lua programs
+For the latest updates and documentation, check out the github repo and it's wiki at
+https://github.com/OpenPrograms/Gopher-Programs
 
-new components:
--implement scrollBar component - vertical and horizontal
--implement compositeComponent - singular components that are composed of
-  sub-components, like listboxes. NOT true containers - sub components are not individually
-  focusable, don't fit in the tab order, etc - but are rendered separately and can be treated
-  separately for event handling purposes. Listbox example, has a scrollbar and a stack of label
-  components which are manipulated by the listbox object but capable of drawing themselves.
--implement listbox, using compositeComponent
--implement textbox, multi-line vert-scrolling version of textfield
--implement messageBox element, that wraps up a gui with label + standard buttons,
-  with messageBox:run returning the label of the clicked button.
-    mb=gml:createMessageBox(width,height,text,buttonLabels...)
-    choice=mb:run()
-  possibly: automatically determine width & height based on text and button labels?
--implement tables - editable fields (double-click),
-  column headers, resizable columns?
-
-milestone 1: file picker dialog, with saveAs/load modes offered.
 
 --***********************************************]]
 
