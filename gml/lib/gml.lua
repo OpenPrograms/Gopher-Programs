@@ -60,6 +60,15 @@ local validDepths = {
 }
 
 --**********************
+--utility functions
+
+function round(v)
+  return math.floor(v+.5)
+end
+
+
+--**********************
+--api functions
 
 function gml.loadStyle(name)
   --search for file
@@ -173,6 +182,9 @@ function gml.loadStyle(name)
 end
 
 
+--**********************
+--internal style-related utility functions
+
 local function tableCopy(t1)
   local copy={}
   for k,v in pairs(t1) do
@@ -265,7 +277,7 @@ end
 
 
 --**********************
-
+--drawing and related functions
 
 
 local function parsePosition(x,y,width,height,maxWidth, maxHeight)
@@ -584,6 +596,52 @@ local function drawTextField(tf)
   end
 end
 
+
+local function drawScrollBarH(bar)
+
+
+end
+
+local function drawScrollBarV(bar)
+  local upCh,dnCh,btnFG,btnBG,
+        barCh, barFG, barBG,
+        gripCh, gripFG, gripBG =
+    findStyleProperties(bar,
+        "button-ch-up","button-ch-down","button-color-fg","button-color-bg",
+        "bar-ch","bar-color-fg","bar-color-bg",
+        "grip-ch-v","grip-color-fg","grip-color-bg")
+
+  local gpu=component.gpu
+  local guiX,guiY=bar.gui.bodyX,bar.gui.bodyY
+  local x,y,h,gs,ge=bar.posX+guiX-1, bar.posY+guiY-1,bar.height,bar.gripStart+guiY,bar.gripEnd+guiY
+  --buttons
+  gpu.setBackground(btnBG)
+  gpu.setForeground(btnFG)
+  gpu.set(x,y,upCh)
+  gpu.set(x,y+h-1,dnCh)
+
+  --scroll area
+  gpu.setBackground(barBG)
+  gpu.setForeground(barFG)
+
+  for y=y+1,gs-1 do
+    gpu.set(x,y,barCh)
+  end
+  for y=ge+1,y+h-2 do
+    gpu.set(x,y,barCh)
+  end
+
+  --grip
+  gpu.setBackground(gripBG)
+  gpu.setForeground(gripFG)
+  for y=gs,ge do
+    gpu.set(x,y,gripCh)
+  end
+end
+
+
+--**********************
+--object creation functions and their utility functions
 
 local function loadHandlers(gui)
   local handlers=gui.handlers
@@ -1105,6 +1163,107 @@ local function addTextField(gui,x,y,width)
   return tf
 end
 
+local function updateScrollBarGrip(sb)
+  local gripStart,gripEnd
+  local pos,max,height=sb.scrollPos,sb.scrollMax,sb.height
+
+  --grip size
+  -- gripSize / height-2 == height / scrollMax
+  local gripSize=math.max(1,math.min(math.floor(math.min(1,height / max) * (height-2)),height-2))
+  if gripSize==height-2 then
+    --grip fills everything
+    sb.gripStart=2
+    sb.gripEnd=height-1
+  else
+    --grip position
+    pos=round((pos-1)/(max-1)*(height-2-gripSize))+1
+
+    --from pos and size, figure gripStart and gripEnd
+    sb.gripStart=pos
+    sb.gripEnd=pos+gripSize-1
+  end
+
+end
+
+
+local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
+  local sb=baseComponent(gui,x,y,1,height,"scrollbar",false)
+  sb.scrollMax=scrollMax or 1
+  sb.scrollPos=1
+  assert(height>2,"Scroll bars must be at least 3 high.")
+
+  sb.draw=drawScrollBarV
+  sb.onScroll=onScroll
+
+  updateScrollBarGrip(sb)
+
+  sb.onClick=function(sb,tx,ty)
+      local newPos=sb.scrollPos
+      if ty==1 then
+        --up button
+        newPos=math.max(1,sb.scrollPos-1)
+      elseif ty==sb.height then
+        newPos=math.min(sb.scrollMax,sb.scrollPos+1)
+      elseif ty<sb.gripStart then
+        --before grip, scroll up a page
+        newPos=math.max(1,sb.scrollPos-sb.height+1)
+      elseif ty>sb.gripEnd then
+        --before grip, scroll up a page
+        newPos=math.min(sb.scrollMax,sb.scrollPos+sb.height-1)
+      end
+      if newPos~=sb.scrollPos then
+        sb.scrollPos=newPos
+        updateScrollBarGrip(sb)
+        sb:draw()
+        if sb.onScroll then
+          sb:onScroll()
+        end
+      end
+    end
+
+  sb.onBeginDrag=function(sb,tx,ty,button)
+      if button==0 and sb.height>3 and (sb.height/sb.scrollMax<1) then
+        sb.dragging=true
+        sb.lastDragPos=ty
+      end
+    end
+
+  sb.onDrag=function(sb,tx,ty)
+      if sb.dragging then
+        local py=sb.lastDragPos
+        local dif=ty-py
+        if dif~=0 then
+          --calc the grip position for this y position
+          --first clamp to range of scroll area
+          local scrollY=math.min(math.max(ty,2),sb.height-1)-2
+          --scale to 0-1
+          scrollY=scrollY/(sb.height-3)
+          --scale to maxScroll
+          scrollY=scrollY*(sb.scrollMax-1)+1
+          --see if this is different from our current scroll position
+          if scrollY~=sb.scrollPos then
+            --it is. We actually scrolled, then.
+            sb.scrollPos=scrollY
+            updateScrollBarGrip(sb)
+            sb:draw()
+            if onScroll then
+              sb:onScroll()
+            end
+          end
+        end
+      end
+    end
+
+  sb.onDrop=function(sb)
+      sb.dragging=false
+    end
+
+  gui.addComponent(sb)
+  return sb
+end
+
+
+
 
 function gml.create(x,y,width,height)
   local screenWidth,screenHeight=component.gpu.getResolution()
@@ -1160,6 +1319,7 @@ function gml.create(x,y,width,height)
   newGui.addLabel=addLabel
   newGui.addButton=addButton
   newGui.addTextField=addTextField
+  newGui.addScrollBarV=addScrollBarV
 
   return newGui
 end

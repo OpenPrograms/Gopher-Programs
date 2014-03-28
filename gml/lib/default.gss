@@ -96,12 +96,15 @@ textbox:focus, textfield:focus {
 scrollbar {
   button-color-fg: 0xffffff;
   button-color-bg: 0x0000ff;
-  button-ch-up: "^";
-  button-ch-down: "v";
-  button-ch-left: "<";
-  button-ch-right: ">";
-  grip-v-char:	"-";
-  grip-h-char: "|";
+  button-ch-up: U+25b2;
+  button-ch-down: U+25bc;
+  button-ch-left: U+25c4;
+  button-ch-right: U+25ba;
+  grip-ch-v:	U+2261;
+  grip-ch-h: "|";
+  bar-ch:	U+2592;
+  bar-color-fg: 0xffffff;
+  bar-color-bg: 0x000080;
   grip-color-fg: 0xffffff;
   grip-color-bg: 0x000080;
 }

@@ -7,7 +7,6 @@ local component=require("component")
 
 local gui=gml.create("center","center",32,9)
 
-
 local label=gui:addLabel("center",2,13,"Hello, World!")
 
 local function toggleLabel()
@@ -38,6 +37,10 @@ gui:addHandler("key_down",
       component.gpu.setBackground(bg)
     end
   end)
+
+local scrollBar
+
+scrollBar=gui:addScrollBarV(30,1,9,100,function() textField.text=tostring(scrollBar.scrollPos) textField:draw() end)
 
 gui:run()
 
