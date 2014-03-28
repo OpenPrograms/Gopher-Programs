@@ -5,7 +5,7 @@ package.loaded["gml"]=nil
 local gml=require("gml")
 local component=require("component")
 
-local gui=gml.create("center","center",32,9)
+local gui=gml.create("center","center",32,11)
 
 local label=gui:addLabel("center",2,13,"Hello, World!")
 
@@ -38,9 +38,10 @@ gui:addHandler("key_down",
     end
   end)
 
-local scrollBar
+local scrollBarV,scrollBarH
 
-scrollBar=gui:addScrollBarV(30,1,9,100,function() textField.text=tostring(scrollBar.scrollPos) textField:draw() end)
+scrollBarV=gui:addScrollBarV(30,1,9,100,function() textField.text=tostring(scrollBarV.scrollPos) textField:draw() end)
+scrollBarH=gui:addScrollBarH(1,9,29,100,function() textField.text=tostring(scrollBarH.scrollPos) textField:draw() end)
 
 gui:run()
 

@@ -598,7 +598,33 @@ end
 
 
 local function drawScrollBarH(bar)
+  local leftCh,rightCh,btnFG,btnBG,
+        barCh, barFG, barBG,
+        gripCh, gripFG, gripBG =
+    findStyleProperties(bar,
+        "button-ch-left","button-ch-right","button-color-fg","button-color-bg",
+        "bar-ch","bar-color-fg","bar-color-bg",
+        "grip-ch-h","grip-color-fg","grip-color-bg")
 
+  local gpu=component.gpu
+  local guiX,guiY=bar.gui.bodyX,bar.gui.bodyY
+  local x,y,w,gs,ge=bar.posX+guiX-1, bar.posY+guiY-1,bar.width,bar.gripStart+guiX,bar.gripEnd+guiX
+  --buttons
+  gpu.setBackground(btnBG)
+  gpu.setForeground(btnFG)
+  gpu.set(x,y,leftCh)
+  gpu.set(x+w-1,y,rightCh)
+
+  --scroll area
+  gpu.setBackground(barBG)
+  gpu.setForeground(barFG)
+
+  gpu.set(x+1,y,barCh:rep(w-2))
+
+  --grip
+  gpu.setBackground(gripBG)
+  gpu.setForeground(gripFG)
+  gpu.set(gs,y,gripCh:rep(ge-gs+1))
 
 end
 
@@ -756,7 +782,7 @@ local function runGui(gui)
             gui:changeFocusTo(clickedOn)
           end
           if target.onClick then
-            target:onClick(tx-target.posX+1,ty-target.posY+1)
+            target:onClick(tx-target.posX+1,ty-target.posY+1,button)
           end
         end
       end
@@ -884,7 +910,7 @@ local function addButton(gui,x,y,width,height,buttonText,onClick)
   button.draw=drawButton
   button.keyHandler=function(button,char,code)
       if code==28 then
-         button:onClick()
+         button:onClick(0,0,-1)
       end
     end
   gui.addComponent(button)
@@ -957,7 +983,7 @@ local function addTextField(gui,x,y,width)
       return text
     end
 
-  tf.onClick=function(tf,tx,ty)
+  tf.onClick=function(tf,tx,ty,button)
       tf.selectEnd=0
       tf.cursorIndex=math.min(tx+tf.scrollIndex-1,#tf.text+1)
       tf:draw()
@@ -1165,18 +1191,18 @@ end
 
 local function updateScrollBarGrip(sb)
   local gripStart,gripEnd
-  local pos,max,height=sb.scrollPos,sb.scrollMax,sb.height
+  local pos,max,length=sb.scrollPos,sb.scrollMax,sb.length
 
   --grip size
   -- gripSize / height-2 == height / scrollMax
-  local gripSize=math.max(1,math.min(math.floor(math.min(1,height / max) * (height-2)),height-2))
-  if gripSize==height-2 then
+  local gripSize=math.max(1,math.min(math.floor(math.min(1,length / max) * (length-2)),length-2))
+  if gripSize==length-2 then
     --grip fills everything
     sb.gripStart=2
-    sb.gripEnd=height-1
+    sb.gripEnd=length-1
   else
     --grip position
-    pos=round((pos-1)/(max-1)*(height-2-gripSize))+1
+    pos=round((pos-1)/(max-1)*(length-2-gripSize))+1
 
     --from pos and size, figure gripStart and gripEnd
     sb.gripStart=pos
@@ -1186,30 +1212,30 @@ local function updateScrollBarGrip(sb)
 end
 
 
-local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
-  local sb=baseComponent(gui,x,y,1,height,"scrollbar",false)
+local function scrollBarBase(gui,x,y,width,height,scrollMax,onScroll)
+  local sb=baseComponent(gui,x,y,width,height,"scrollbar",false)
   sb.scrollMax=scrollMax or 1
   sb.scrollPos=1
-  assert(height>2,"Scroll bars must be at least 3 high.")
+  sb.length=math.max(width,height)
+  assert(sb.length>2,"Scroll bars must be at least 3 long.")
 
-  sb.draw=drawScrollBarV
   sb.onScroll=onScroll
 
   updateScrollBarGrip(sb)
 
-  sb.onClick=function(sb,tx,ty)
+  sb._onClick=function(sb,tpos,button)
       local newPos=sb.scrollPos
-      if ty==1 then
+      if tpos==1 then
         --up button
         newPos=math.max(1,sb.scrollPos-1)
-      elseif ty==sb.height then
+      elseif tpos==sb.length then
         newPos=math.min(sb.scrollMax,sb.scrollPos+1)
-      elseif ty<sb.gripStart then
+      elseif tpos<sb.gripStart then
         --before grip, scroll up a page
-        newPos=math.max(1,sb.scrollPos-sb.height+1)
-      elseif ty>sb.gripEnd then
+        newPos=math.max(1,sb.scrollPos-sb.length+1)
+      elseif tpos>sb.gripEnd then
         --before grip, scroll up a page
-        newPos=math.min(sb.scrollMax,sb.scrollPos+sb.height-1)
+        newPos=math.min(sb.scrollMax,sb.scrollPos+sb.length-1)
       end
       if newPos~=sb.scrollPos then
         sb.scrollPos=newPos
@@ -1221,29 +1247,29 @@ local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
       end
     end
 
-  sb.onBeginDrag=function(sb,tx,ty,button)
-      if button==0 and sb.height>3 and (sb.height/sb.scrollMax<1) then
+  sb._onBeginDrag=function(sb,tpos,button)
+      if button==0 and sb.length>3 and (sb.length/sb.scrollMax<1) then
         sb.dragging=true
-        sb.lastDragPos=ty
+        sb.lastDragPos=tpos
       end
     end
 
-  sb.onDrag=function(sb,tx,ty)
+  sb._onDrag=function(sb,tpos)
       if sb.dragging then
         local py=sb.lastDragPos
-        local dif=ty-py
+        local dif=tpos-py
         if dif~=0 then
           --calc the grip position for this y position
           --first clamp to range of scroll area
-          local scrollY=math.min(math.max(ty,2),sb.height-1)-2
+          local scroll=math.min(math.max(tpos,2),sb.length-1)-2
           --scale to 0-1
-          scrollY=scrollY/(sb.height-3)
+          scroll=scroll/(sb.length-3)
           --scale to maxScroll
-          scrollY=scrollY*(sb.scrollMax-1)+1
+          scroll=round(scroll*(sb.scrollMax-1)+1)
           --see if this is different from our current scroll position
-          if scrollY~=sb.scrollPos then
+          if scroll~=sb.scrollPos then
             --it is. We actually scrolled, then.
-            sb.scrollPos=scrollY
+            sb.scrollPos=scroll
             updateScrollBarGrip(sb)
             sb:draw()
             if onScroll then
@@ -1257,6 +1283,32 @@ local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
   sb.onDrop=function(sb)
       sb.dragging=false
     end
+
+  return sb
+end
+
+local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
+  local sb=scrollBarBase(gui,x,y,1,height,scrollMax,onScroll)
+
+  sb.draw=drawScrollBarV
+
+  sb.onClick=function(sb,tx,ty,button) sb:_onClick(ty,button) end
+  sb.onBeginDrag=function(sb,tx,ty,button) sb:_onBeginDrag(ty,button) end
+  sb.onDrag=function(sb,tx,ty,button) sb:_onDrag(ty,button) end
+
+  gui.addComponent(sb)
+  return sb
+end
+
+local function addScrollBarH(gui,x,y,width,scrollMax,onScroll)
+
+  local sb=scrollBarBase(gui,x,y,width,1,scrollMax,onScroll)
+
+  sb.draw=drawScrollBarH
+
+  sb.onClick=function(sb,tx,ty,button) sb:_onClick(tx,button) end
+  sb.onBeginDrag=function(sb,tx,ty,button) sb:_onBeginDrag(tx,button) end
+  sb.onDrag=function(sb,tx,ty,button) sb:_onDrag(tx,button) end
 
   gui.addComponent(sb)
   return sb
@@ -1320,6 +1372,7 @@ function gml.create(x,y,width,height)
   newGui.addButton=addButton
   newGui.addTextField=addTextField
   newGui.addScrollBarV=addScrollBarV
+  newGui.addScrollBarH=addScrollBarH
 
   return newGui
 end
