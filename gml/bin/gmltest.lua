@@ -5,7 +5,7 @@ package.loaded["gml"]=nil
 local gml=require("gml")
 local component=require("component")
 
-local gui=gml.create("center","center",30,7)
+local gui=gml.create("center","center",32,9)
 
 
 local label=gui:addLabel("center",2,13,"Hello, World!")
@@ -41,32 +41,3 @@ gui:addHandler("key_down",
 
 gui:run()
 
---[[
-This program as gml:
-
-[gml]
-  [gui name=gui]
-    [label name=label x=center y=2 width=13]Hello, World![/label]
-    [textfield x=center y=4 width=18][/textfield]
-    [button name=button1 x=4 y=6 width=10 height=1 onClick=toggleLabel]Toggle[/button]
-    [button name=button2 x=-4 y=6 width=10 height=1 onClick=gui.close]Close[/button]
-  [/gui]
-  [function name=toggleLabel]
-    if label.visible then
-      label:hide()
-    else
-      label:show()
-    end
-  [/function]
-  [handler event=key_down]
-    if char==18 then
-      local fg, bg=component.gpu.getForeground(), component.gpu.getBackground()
-      label["text-color"]=math.random(0,0xffffff)
-      label:draw()
-      component.gpu.setForeground(fg)
-      component.gpu.setBackground(bg)
-    end
-  [/handler]
-[/gml]
-
---]]

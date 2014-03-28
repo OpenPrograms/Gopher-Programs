@@ -4,9 +4,12 @@ gui library
 
 by GopherAtl
 
-do whatever you want, just don't be a dick. Give me credit whenever you redistribute, modified or otherwise.
+do whatever you want, just don't be a dick. Give
+me credit whenever you redistribute, modified or
+otherwise.
 
-For the latest updates and documentation, check out the github repo and it's wiki at
+For the latest updates and documentation, check
+out the github repo and it's wiki at
 https://github.com/OpenPrograms/Gopher-Programs
 
 
@@ -17,7 +20,6 @@ local component=require("component")
 local term=require("term")
 local computer=require("computer")
 local shell=require("shell")
---local os=require("os")
 local filesystem=require("filesystem")
 local keyboard=require("keyboard")
 local unicode=require("unicode")
@@ -133,6 +135,8 @@ function gml.loadStyle(name)
     for prop,val in body:gmatch("(%S*)%s*:%s*(.-);") do
       if tonumber(val) then
         val=tonumber(val)
+      elseif val:match("U%+%x+") then
+        val=unicode.char(tonumber("0x"..val:match("U%+(.*)")))
       elseif val:match("^%s*[tT][rR][uU][eE]%s*$") then
         val=true
       elseif val:match("^%s*[fF][aA][lL][sS][eE]%s*$") then
@@ -199,8 +203,7 @@ local function mergeStyles(t1, t2)
 end
 
 
-local function findStyleProperties(element,...)
-  local props={...}
+local function getAppliedStyles(element)
   local styleRoot=element.style
   assert(styleRoot)
 
@@ -224,26 +227,40 @@ local function findStyleProperties(element,...)
   nodes=filterDown(nodes,state)
   nodes=filterDown(nodes,class)
   nodes=filterDown(nodes,elementType)
+  return nodes
+end
+
+local function extractProperty(element,styles,property)
+  if element[property] then
+    return element[property]
+  end
+  for j=1,#styles do
+    local v=styles[j][property]
+    if v~=nil then
+      return v
+    end
+  end
+end
+
+local function extractProperties(element,styles,...)
+  local props={...}
+
   --nodes is now a list of all terminal branches that could possibly apply to me
   local vals={}
   for i=1,#props do
-    if element[props[i]] then
-      vals[#vals+1]=element[props[i]]
-    else
-      for j=1,#nodes do
-        local v=nodes[j][props[i]]
-        if v~=nil then
-          vals[#vals+1]=v
-          break
-        end
-      end
-    end
+    vals[#vals+1]=extractProperty(element,styles,props[i])
     if #vals~=i then
-      for k,v in pairs(nodes[1]) do print('"'..k..'"',v,k==props[i] and "<-----!!!" or "") end
+      for k,v in pairs(styles[1]) do print('"'..k..'"',v,k==props[i] and "<-----!!!" or "") end
       error("Could not locate value for style property "..props[i].."!")
     end
   end
   return table.unpack(vals)
+end
+
+local function findStyleProperties(element,...)
+  local props={...}
+  local nodes=getAppliedStyles(element)
+  return extractProperties(element,nodes,...)
 end
 
 
@@ -287,6 +304,93 @@ local function parsePosition(x,y,width,height,maxWidth, maxHeight)
   return x,y,width,height
 end
 
+--draws a frame, based on the relevant style properties, and
+--returns the effective client area inside the frame
+local function drawBorder(element,styles)
+  local guiX,guiY=1,1
+  if element.gui then
+    guiX,guiY=element.gui.bodyX,element.gui.bodyY
+  end
+
+  local borderFG, borderBG,
+        border,borderLeft,borderRight,borderTop,borderBottom,borderCh,
+        borderChL,borderChR,borderChT,borderChB,
+        borderChTL,borderChTR,borderChBL,borderChBR =
+      extractProperties(element,styles,
+        "border-color-fg","border-color-bg",
+        "border","border-left","border-right","border-top","border-bottom","border-ch",
+        "border-ch-left","border-ch-right","border-ch-top","border-ch-bottom",
+        "border-ch-topleft","border-ch-topright","border-ch-bottomleft","border-ch-bottomright")
+
+  local posX,posY=element.posX+guiX-1,element.posY+guiY-1
+  local width,height=element.width,element.height
+
+  local bodyX,bodyY=posX,posY
+  local bodyW,bodyH=width,height
+
+  local gpu=component.gpu
+
+  if border then
+    gpu.setBackground(borderBG)
+    gpu.setForeground(borderFG)
+
+    --as needed, leave off top and bottom borders if height doesn't permit them
+    if borderTop and bodyW>1 then
+      bodyY=bodyY+1
+      bodyH=bodyH-1
+      --do the top bits
+      local str=(borderLeft and borderChTL or borderChT)..borderChT:rep(bodyW-2)..(borderRight and borderChTR or borderChB)
+      gpu.set(posX,posY,str)
+    end
+    if borderBottom and bodyW>1 then
+      bodyH=bodyH-1
+      --do the top bits
+      local str=(borderLeft and borderChBL or borderChB)..borderChB:rep(bodyW-2)..(borderRight and borderChBR or borderChB)
+      gpu.set(posX,posY+height-1,str)
+    end
+    if borderLeft then
+      bodyX=bodyX+1
+      bodyW=bodyW-1
+      for y=bodyY,bodyY+bodyH-1 do
+        gpu.set(posX,y,borderChL)
+      end
+    end
+    if borderRight then
+      bodyW=bodyW-1
+      for y=bodyY,bodyY+bodyH-1 do
+        gpu.set(posX+width-1,y,borderChR)
+      end
+    end
+  end
+
+  return bodyX,bodyY,bodyW,bodyH
+end
+
+--calculates the body coords of an element based on it's true coords
+--and border style properties
+local function calcBody(element)
+  local x,y,w,h=element.posX,element.posY,element.width,element.height
+  local border,borderTop,borderBottom,borderLeft,borderRight =
+     findStyleProperties(element,"border","border-top","border-bottom","border-left","border-right")
+
+  if border then
+    if borderTop then
+      y=y+1
+      h=h-1
+    end
+    if borderBottom then
+      h=h-1
+    end
+    if borderLeft then
+      x=x+1
+      w=w-1
+    end
+    if borderRight then
+      w=w-1
+    end
+  end
+  return x,y,w,h
+end
 
 local function frameAndSave(element)
   local t={}
@@ -297,15 +401,7 @@ local function frameAndSave(element)
   local pcb=term.getCursorBlink()
   local curx,cury=term.getCursor()
   local pfg,pbg=component.gpu.getForeground(),component.gpu.getBackground()
-
-  local fillCh,fillFG,fillBG=findStyleProperties(element,"fill-ch","fill-color-fg","fill-color-bg")
-
-  local blankRow=fillCh:rep(width)
-
-  component.gpu.setForeground(fillFG)
-  component.gpu.setBackground(fillBG)
-  term.setCursorBlink(false)
-
+  --preserve background
   for ly=1,height do
     t[ly]={}
     local str, cfg, cbg=component.gpu.get(x,y+ly-1)
@@ -319,7 +415,22 @@ local function frameAndSave(element)
       end
     end
     t[ly][#t[ly]+1]={str,cfg,cbg}
-    component.gpu.set(x,ly+y-1,blankRow)
+  end
+
+  local styles=getAppliedStyles(element)
+
+  local bodyX,bodyY,bodyW,bodyH=drawBorder(element,styles)
+
+  local fillCh,fillFG,fillBG=extractProperties(element,styles,"fill-ch","fill-color-fg","fill-color-bg")
+
+  local blankRow=fillCh:rep(bodyW)
+
+  component.gpu.setForeground(fillFG)
+  component.gpu.setBackground(fillBG)
+  term.setCursorBlink(false)
+
+  for y=bodyY,bodyY+bodyH-1 do
+    component.gpu.set(bodyX,y,blankRow)
   end
 
   return {curx,cury,pcb,pfg,pbg, t}
@@ -365,7 +476,7 @@ end
 
 local function drawLabel(label)
   if not label.hidden then
-    local guiX,guiY=label.gui.posX,label.gui.posY
+    local guiX,guiY=label.gui.bodyX,label.gui.bodyY
     local fg, bg=findStyleProperties(label,"text-color","text-background")
     component.gpu.setForeground(fg)
     component.gpu.setBackground(bg)
@@ -375,57 +486,19 @@ local function drawLabel(label)
 end
 
 
+
 local function drawButton(button)
   if not button.hidden then
-    local guiX,guiY=button.gui.posX,button.gui.posY
-    local fg,bg, borderFG, borderBG,
-          border,borderLeft,borderRight,borderTop,borderBottom,borderCh,
-          borderChL,borderChR,borderChT,borderChB,
-          borderChTL,borderChTR,borderChBL,borderChBR,
-          fillFG,fillBG,fillCh=
-      findStyleProperties(button,
-        "text-color","text-background","border-color-fg","border-color-bg",
-        "border","border-left","border-right","border-top","border-bottom","border-ch",
-        "border-ch-left","border-ch-right","border-ch-top","border-ch-bottom",
-        "border-ch-topleft","border-ch-topright","border-ch-bottomleft","border-ch-bottomright",
-        "fill-color-fg","fill-color-bg","fill-ch")
-
-    local posX,posY=button.posX+guiX-1,button.posY+guiY-1
-    local width,height=button.width,button.height
-
-    local bodyX,bodyY=posX,posY
-    local bodyW,bodyH=width,height
-
+    local styles=getAppliedStyles(button)
     local gpu=component.gpu
 
-    if border then
-      gpu.setBackground(borderBG)
-      gpu.setForeground(borderFG)
+    local fg,bg,
+          fillFG,fillBG,fillCh=
+      findStyleProperties(button,
+        "text-color","text-background",
+        "fill-color-fg","fill-color-bg","fill-ch")
 
-      --as needed, leave off top and bottom borders if height doesn't permit them
-      if borderTop and bodyH>1 then
-        bodyX=bodyX+1
-        bodyH=bodyH-1
-        --do the top bits
-        local str=(borderLeft and borderChTL or borderChT)..borderChT:rep(bodyW-2)..(borderRight and borderChTR or borderChB)
-        gpu.set(posX,posY,str)
-      end
-      if borderBottom and bodyH>1 then
-        bodyH=bodyH-1
-        --do the top bits
-        local str=(borderLeft and borderChBL or borderChB)..borderChB:rep(bodyW-2)..(borderRight and borderChBR or borderChB)
-        gpu.set(posX,posY+height-1,str)
-      end
-      if borderLeft then
-        bodyX=bodyX+1
-        bodyW=bodyW-1
-        gpu.set(posX,bodyY,borderChL:rep(bodyH))
-      end
-      if borderRight then
-        bodyW=bodyW-1
-        gpu.set(posX+width-1,bodyY,borderChR:rep(bodyH))
-      end
-    end
+    local bodyX,bodyY,bodyW,bodyH=drawBorder(button,styles)
 
     gpu.setBackground(fillBG)
     gpu.setForeground(fillFG)
@@ -456,7 +529,7 @@ local function drawTextField(tf)
     local textFG,textBG,selectedFG,selectedBG=
         findStyleProperties(tf,"text-color","text-background","selected-color","selected-background")
 
-    local posX,posY=tf.posX+tf.gui.posX-1,tf.posY+tf.gui.posY-1
+    local posX,posY=tf.posX+tf.gui.bodyX-1,tf.posY+tf.gui.bodyY-1
     local gpu=component.gpu
 
     --grab the subset of text visible
@@ -613,8 +686,8 @@ local function runGui(gui)
       --figure out what was touched!
       local tx, ty, button=e[3],e[4],e[5]
       if gui:contains(tx,ty) then
-        tx=tx-gui.posX+1
-        ty=ty-gui.posY+1
+        tx=tx-gui.bodyX+1
+        ty=ty-gui.bodyY+1
         lastClickTime=computer.uptime()
         lastClickPos={tx,ty}
         dragButton=button
@@ -633,8 +706,8 @@ local function runGui(gui)
       --if we didn't click /on/ something to start this drag, we do nada
       if clickedOn then
         local tx,ty=e[3],e[4]
-        tx=tx-gui.posX+1
-        ty=ty-gui.posY+1
+        tx=tx-gui.bodyX+1
+        ty=ty-gui.bodyY+1
         --is this is the beginning of a drag?
         if not dragging then
           if clickedOn.onBeginDrag then
@@ -654,8 +727,8 @@ local function runGui(gui)
       end
     elseif e[1]=="drop" then
       local tx,ty=e[3],e[4]
-      tx=tx-gui.posX+1
-      ty=ty-gui.posY+1
+      tx=tx-gui.bodyX+1
+      ty=ty-gui.bodyY+1
       if draggingObj and draggingObj.onDrop then
         local dropOver=getComponentAt(tx,ty)
         draggingObj:onDrop(tx,ty,dropOver)
@@ -723,7 +796,7 @@ local function baseComponent(gui,x,y,width,height,type,focusable)
     }
 
   c.posX, c.posY, c.width, c.height =
-    parsePosition(x, y, width, height, gui.width, gui.height)
+    parsePosition(x, y, width, height, gui.bodyW, gui.bodyH)
 
   c.hide=elementHide
   c.show=elementShow
@@ -895,7 +968,7 @@ local function addTextField(gui,x,y,width)
       if tf.dragTimer then
         event.cancel(tf.dragTimer)
       end
-      term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+      term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
       term.setCursorBlink(true)
     end
   end
@@ -915,9 +988,9 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=math.max(1,tf.scrollIndex-math.floor(tf.width/3))
             dirty=true
           else
-            term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
           end
-          term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+          term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
         end
         if keyboard.isShiftDown() then
           updateSelect(tf,prevCI)
@@ -935,7 +1008,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=tf.scrollIndex+math.floor(tf.width/3)
             dirty=true
           else
-            term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
           end
         end
         if keyboard.isShiftDown() then
@@ -953,7 +1026,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=1
             dirty=true
           else
-            term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
           end
         end
         if keyboard.isShiftDown() then
@@ -971,7 +1044,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=tf.cursorIndex-tf.width+1
             dirty=true
           else
-            term.setCursor(tf.posX+gui.posX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.posY-1)
+            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
           end
         end
         if keyboard.isShiftDown() then
@@ -1039,6 +1112,7 @@ function gml.create(x,y,width,height)
   local newGui={type="gui", handlers={}, components={}, style=defaultStyle }
   assert(defaultStyle)
   newGui.posX,newGui.posY,newGui.width,newGui.height=parsePosition(x,y,width,height,screenWidth,screenHeight)
+  newGui.bodyX,newGui.bodyY,newGui.bodyW,newGui.bodyH=calcBody(newGui)
 
   local running=false
   function newGui.close()
@@ -1057,8 +1131,8 @@ function gml.create(x,y,width,height)
     component.gpu.setForeground(fillFG)
     component.gpu.setBackground(fillBG)
 
-    x=x+newGui.posX-1
-    for y=y+newGui.posY-1,y+h+newGui.posY-2 do
+    x=x+newGui.bodyX-1
+    for y=y+newGui.bodyY-1,y+h+newGui.bodyY-2 do
       component.gpu.set(x,y,blank)
     end
   end
