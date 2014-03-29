@@ -17,6 +17,8 @@ simple command-line program to pull an entire git repo, all files and directorie
 example:
 
 gitrepo OpenPrograms/Gopher-Programs /hd1/gp
+
+This one is complete DWTFYW license. Steal the code, modify it, extend it, take full credit, whatever. There's a hackish but effective json->lua table converter in there, as well as an unused base64 decoding function which has been tested against github's base64 encoded data included in some gitapi json responses (be sure to strip "\n"s and the trailing "=" from the encoded data first, for some reason github thinks we need neatly line-wrapped base64). Go to town, have fun. 
     
 ### Contributions
 
