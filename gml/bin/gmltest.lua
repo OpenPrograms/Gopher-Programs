@@ -1,5 +1,4 @@
 --just hrere to force reloading the api so I don't have to reboot
-local package=require("package")
 package.loaded["gml"]=nil
 
 local gml=require("gml")
