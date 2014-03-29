@@ -1412,6 +1412,11 @@ local function addListBox(gui,x,y,width,height,list)
     lb.labels[i].class="listbox"
   end
 
+  lb.keyHandler=function(lb,char,code)
+    if code==keyboard.keys.up then
+      changeSelect(1)
+  end
+
   lb.onClick=clickListBox
   lb.draw=function(lb)
     local styles=getAppliedStyles(lb)
