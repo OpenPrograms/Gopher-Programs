@@ -50,6 +50,7 @@ local validStates = {
   checked=true,
   focus=true,
   empty=true,
+  selected=true,
 }
 
 local validDepths = {
@@ -58,6 +59,10 @@ local validDepths = {
   [4]=true,
   [8]=true,
 }
+
+local screen = { posX=1,posY=1,bodyX=1,bodyY=1, }
+screen.width,screen.height=component.gpu.getResolution()
+screen.bodyW,screen.bodyH=screen.width,screen.height
 
 --**********************
 --utility functions
@@ -215,7 +220,7 @@ local function mergeStyles(t1, t2)
 end
 
 
-local function getAppliedStyles(element)
+function getAppliedStyles(element)
   local styleRoot=element.style
   assert(styleRoot)
 
@@ -242,7 +247,8 @@ local function getAppliedStyles(element)
   return nodes
 end
 
-local function extractProperty(element,styles,property)
+
+function extractProperty(element,styles,property)
   if element[property] then
     return element[property]
   end
@@ -292,7 +298,7 @@ local function parsePosition(x,y,width,height,maxWidth, maxHeight)
   elseif x=="center" then
     x=math.floor((maxWidth-width)/2)
   elseif x<0 then
-    x=maxWidth-width+1+x
+    x=maxWidth-width+2+x
   elseif x<1 then
     x=1
   elseif x+width-1>maxWidth then
@@ -306,7 +312,7 @@ local function parsePosition(x,y,width,height,maxWidth, maxHeight)
   elseif y=="center" then
     y=math.floor((maxHeight-height)/2)
   elseif y<0 then
-    y=maxHeight-height+1+y
+    y=maxHeight-height+2+y
   elseif y<1 then
     y=1
   elseif y+height-1>maxHeight then
@@ -319,25 +325,21 @@ end
 --draws a frame, based on the relevant style properties, and
 --returns the effective client area inside the frame
 local function drawBorder(element,styles)
-  local guiX,guiY=1,1
-  if element.gui then
-    guiX,guiY=element.gui.bodyX,element.gui.bodyY
-  end
+  local screenX,screenY=element:getScreenPosition()
 
   local borderFG, borderBG,
-        border,borderLeft,borderRight,borderTop,borderBottom,borderCh,
+        border,borderLeft,borderRight,borderTop,borderBottom,
         borderChL,borderChR,borderChT,borderChB,
         borderChTL,borderChTR,borderChBL,borderChBR =
       extractProperties(element,styles,
         "border-color-fg","border-color-bg",
-        "border","border-left","border-right","border-top","border-bottom","border-ch",
+        "border","border-left","border-right","border-top","border-bottom",
         "border-ch-left","border-ch-right","border-ch-top","border-ch-bottom",
         "border-ch-topleft","border-ch-topright","border-ch-bottomleft","border-ch-bottomright")
 
-  local posX,posY=element.posX+guiX-1,element.posY+guiY-1
   local width,height=element.width,element.height
 
-  local bodyX,bodyY=posX,posY
+  local bodyX,bodyY=screenX,screenY
   local bodyW,bodyH=width,height
 
   local gpu=component.gpu
@@ -352,25 +354,25 @@ local function drawBorder(element,styles)
       bodyH=bodyH-1
       --do the top bits
       local str=(borderLeft and borderChTL or borderChT)..borderChT:rep(bodyW-2)..(borderRight and borderChTR or borderChB)
-      gpu.set(posX,posY,str)
+      gpu.set(screenX,screenY,str)
     end
     if borderBottom and bodyW>1 then
       bodyH=bodyH-1
       --do the top bits
       local str=(borderLeft and borderChBL or borderChB)..borderChB:rep(bodyW-2)..(borderRight and borderChBR or borderChB)
-      gpu.set(posX,posY+height-1,str)
+      gpu.set(screenX,screenY+height-1,str)
     end
     if borderLeft then
       bodyX=bodyX+1
       bodyW=bodyW-1
       for y=bodyY,bodyY+bodyH-1 do
-        gpu.set(posX,y,borderChL)
+        gpu.set(screenX,y,borderChL)
       end
     end
     if borderRight then
       bodyW=bodyW-1
       for y=bodyY,bodyY+bodyH-1 do
-        gpu.set(posX+width-1,y,borderChR)
+        gpu.set(screenX+width-1,y,borderChR)
       end
     end
   end
@@ -404,11 +406,15 @@ local function calcBody(element)
   return x,y,w,h
 end
 
+local function correctForBorder(element,px,py)
+  px=px-(element.bodyX and element.bodyX-element.posX or 0)
+  py=py-(element.bodyY and element.bodyY-element.posY or 0)
+  return px,py
+end
+
 local function frameAndSave(element)
   local t={}
   local x,y,width,height=element.posX,element.posY,element.width,element.height
-  --TODO: when this starts being used on elements besides guis themselves, will
-  --need to adjsut for parent position. getAbsPosition method?
 
   local pcb=term.getCursorBlink()
   local curx,cury=term.getCursor()
@@ -488,11 +494,11 @@ end
 
 local function drawLabel(label)
   if not label.hidden then
-    local guiX,guiY=label.gui.bodyX,label.gui.bodyY
+    local screenX,screenY=label:getScreenPosition()
     local fg, bg=findStyleProperties(label,"text-color","text-background")
     component.gpu.setForeground(fg)
     component.gpu.setBackground(bg)
-    component.gpu.set(guiX+label.posX-1,guiY+label.posY-1,label.text)
+    component.gpu.set(screenX,screenY,label.text)
     label.visible=true
   end
 end
@@ -540,8 +546,7 @@ local function drawTextField(tf)
   if not tf.hidden then
     local textFG,textBG,selectedFG,selectedBG=
         findStyleProperties(tf,"text-color","text-background","selected-color","selected-background")
-
-    local posX,posY=tf.posX+tf.gui.bodyX-1,tf.posY+tf.gui.bodyY-1
+    local screenX,screenY=tf:getScreenPosition()
     local gpu=component.gpu
 
     --grab the subset of text visible
@@ -571,26 +576,26 @@ local function drawTextField(tf)
 
       gpu.setForeground(selectedFG)
       gpu.setBackground(selectedBG)
-      gpu.set(posX+visSelStart-1,posY,selText)
+      gpu.set(screenX+visSelStart-1,screenY,selText)
 
       if preSelText or postSelText then
         gpu.setForeground(textFG)
         gpu.setBackground(textBG)
         if preSelText then
-          gpu.set(posX,posY,preSelText)
+          gpu.set(screenX,screenY,preSelText)
         end
         if postSelText then
-          gpu.set(posX+visSelEnd,posY,postSelText)
+          gpu.set(screenX+visSelEnd,screenY,postSelText)
         end
       end
     else
       --no selection, just draw
       gpu.setForeground(textFG)
       gpu.setBackground(textBG)
-      gpu.set(posX,posY,visibleText)
+      gpu.set(screenX,screenY,visibleText)
     end
     if tf.state=="focus" and not tf.dragging then
-      term.setCursor(posX+tf.cursorIndex-tf.scrollIndex,posY)
+      term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
       term.setCursorBlink(true)
     end
   end
@@ -607,24 +612,25 @@ local function drawScrollBarH(bar)
         "grip-ch-h","grip-color-fg","grip-color-bg")
 
   local gpu=component.gpu
-  local guiX,guiY=bar.gui.bodyX,bar.gui.bodyY
-  local x,y,w,gs,ge=bar.posX+guiX-1, bar.posY+guiY-1,bar.width,bar.gripStart+guiX,bar.gripEnd+guiX
+  local screenX,screenY=bar:getScreenPosition()
+
+  local w,gs,ge=bar.width,bar.gripStart+screenX,bar.gripEnd+screenX
   --buttons
   gpu.setBackground(btnBG)
   gpu.setForeground(btnFG)
-  gpu.set(x,y,leftCh)
-  gpu.set(x+w-1,y,rightCh)
+  gpu.set(screenX,screenY,leftCh)
+  gpu.set(screenX+w-1,screenY,rightCh)
 
   --scroll area
   gpu.setBackground(barBG)
   gpu.setForeground(barFG)
 
-  gpu.set(x+1,y,barCh:rep(w-2))
+  gpu.set(screenX+1,screenY,barCh:rep(w-2))
 
   --grip
   gpu.setBackground(gripBG)
   gpu.setForeground(gripFG)
-  gpu.set(gs,y,gripCh:rep(ge-gs+1))
+  gpu.set(gs,screenY,gripCh:rep(ge-gs+1))
 
 end
 
@@ -638,30 +644,30 @@ local function drawScrollBarV(bar)
         "grip-ch-v","grip-color-fg","grip-color-bg")
 
   local gpu=component.gpu
-  local guiX,guiY=bar.gui.bodyX,bar.gui.bodyY
-  local x,y,h,gs,ge=bar.posX+guiX-1, bar.posY+guiY-1,bar.height,bar.gripStart+guiY,bar.gripEnd+guiY
+  local screenX,screenY=bar:getScreenPosition()
+  local h,gs,ge=bar.height,bar.gripStart+screenY,bar.gripEnd+screenY
   --buttons
   gpu.setBackground(btnBG)
   gpu.setForeground(btnFG)
-  gpu.set(x,y,upCh)
-  gpu.set(x,y+h-1,dnCh)
+  gpu.set(screenX,screenY,upCh)
+  gpu.set(screenX,screenY+h-1,dnCh)
 
   --scroll area
   gpu.setBackground(barBG)
   gpu.setForeground(barFG)
 
-  for y=y+1,gs-1 do
-    gpu.set(x,y,barCh)
+  for screenY=screenY+1,gs-1 do
+    gpu.set(screenX,screenY,barCh)
   end
-  for y=ge+1,y+h-2 do
-    gpu.set(x,y,barCh)
+  for screenY=ge+1,screenY+h-2 do
+    gpu.set(screenX,screenY,barCh)
   end
 
   --grip
   gpu.setBackground(gripBG)
   gpu.setForeground(gripFG)
-  for y=gs,ge do
-    gpu.set(x,y,gripCh)
+  for screenY=gs,ge do
+    gpu.set(screenX,screenY,gripCh)
   end
 end
 
@@ -795,7 +801,7 @@ local function runGui(gui)
         --is this is the beginning of a drag?
         if not dragging then
           if clickedOn.onBeginDrag then
-            draggingObj=clickedOn:onBeginDrag(lastClickPos[1],lastClickPos[2],dragButton)
+            draggingObj=clickedOn:onBeginDrag(lastClickPos[1]-clickedOn.posX+1,lastClickPos[2]-clickedOn.posY+1,dragButton)
             dragging=true
           end
         end
@@ -806,6 +812,7 @@ local function runGui(gui)
         end
         --
         if clickedOn and clickedOn.onDrag then
+          tx,ty=tx-clickedOn.posX+1,ty-clickedOn.posY+1
           clickedOn:onDrag(tx,ty)
         end
       end
@@ -817,7 +824,8 @@ local function runGui(gui)
         local dropOver=getComponentAt(tx,ty)
         draggingObj:onDrop(tx,ty,dropOver)
       end
-      if clickedOn.onDrop then
+      if clickedOn and clickedOn.onDrop then
+        tx,ty=tx-clickedOn.posX+1,ty-clickedOn.posY+1
         clickedOn:onDrop(tx,ty,dropOver)
       end
       draggingObj=nil
@@ -841,7 +849,7 @@ local function runGui(gui)
         end
       elseif char==3 then
         --copy!
-        if gui.focusElement.doCopy then
+        if gui.focusElement and gui.focusElement.doCopy then
           clipboard=gui.focusElement:doCopy() or clipboard
         end
       elseif char==22 then
@@ -882,6 +890,17 @@ local function baseComponent(gui,x,y,width,height,type,focusable)
   c.posX, c.posY, c.width, c.height =
     parsePosition(x, y, width, height, gui.bodyW, gui.bodyH)
 
+  c.getScreenPosition=function(element)
+      local e=element
+      local x,y=e.posX,e.posY
+      while e.gui and e.gui~=screen do
+        e=e.gui
+        x=x+e.bodyX-1
+        y=y+e.bodyY-1
+      end
+      return x,y
+    end
+
   c.hide=elementHide
   c.show=elementShow
   c.contains=contains
@@ -897,7 +916,7 @@ local function addLabel(gui,x,y,width,labelText)
 
   label.draw=drawLabel
 
-  gui.addComponent(label)
+  gui:addComponent(label)
   return label
 end
 
@@ -913,7 +932,7 @@ local function addButton(gui,x,y,width,height,buttonText,onClick)
          button:onClick(0,0,-1)
       end
     end
-  gui.addComponent(button)
+  gui:addComponent(button)
   return button
 end
 
@@ -992,7 +1011,7 @@ local function addTextField(gui,x,y,width)
   tf.onBeginDrag=function(tf,tx,ty,button)
       --drag events are in gui coords, not component, so correct
       if button==0 then
-        tf.selectOrigin=math.min(tx-tf.posX+tf.scrollIndex,#tf.text+1)
+        tf.selectOrigin=math.min(tx+tf.scrollIndex,#tf.text+1)
         tf.dragging=tf.selectOrigin
         term.setCursorBlink(false)
 
@@ -1001,7 +1020,7 @@ local function addTextField(gui,x,y,width)
 
   tf.onDrag=function(tf,tx,ty)
       if tf.dragging then
-        local dragX=tx-tf.posX+1
+        local dragX=tx
         local prevCI=tf.cursorIndex
         tf.cursorIndex=math.max(math.min(dragX+tf.scrollIndex-1,#tf.text+1),1)
         if prevCI~=cursorIndex then
@@ -1047,18 +1066,20 @@ local function addTextField(gui,x,y,width)
       end
     end
 
-  tf.onDrop=function()
+  tf.onDrop=function(tf)
     if tf.dragging then
       tf.dragging=nil
       if tf.dragTimer then
         event.cancel(tf.dragTimer)
       end
-      term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+      local screenX,screenY=tf:getScreenPosition()
+      term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
       term.setCursorBlink(true)
     end
   end
 
-  tf.keyHandler=function(tf,char,code)
+  tf.keyHandler=function(tfclear,char,code)
+      local screenX,screenY=tf:getScreenPosition()
       local dirty=false
       if not keyboard.isControl(char) then
         tf:insertText(unicode.char(char))
@@ -1073,9 +1094,9 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=math.max(1,tf.scrollIndex-math.floor(tf.width/3))
             dirty=true
           else
-            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+            term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
           end
-          term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+          term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
         end
         if keyboard.isShiftDown() then
           updateSelect(tf,prevCI)
@@ -1093,7 +1114,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=tf.scrollIndex+math.floor(tf.width/3)
             dirty=true
           else
-            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+            term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
           end
         end
         if keyboard.isShiftDown() then
@@ -1111,7 +1132,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=1
             dirty=true
           else
-            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+            term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
           end
         end
         if keyboard.isShiftDown() then
@@ -1129,7 +1150,7 @@ local function addTextField(gui,x,y,width)
             tf.scrollIndex=tf.cursorIndex-tf.width+1
             dirty=true
           else
-            term.setCursor(tf.posX+gui.bodyX-1+tf.cursorIndex-tf.scrollIndex,tf.posY+gui.bodyY-1)
+            term.setCursor(screenX+tf.cursorIndex-tf.scrollIndex,screenY)
           end
         end
         if keyboard.isShiftDown() then
@@ -1186,7 +1207,7 @@ local function addTextField(gui,x,y,width)
     tf:draw()
   end
 
-  gui.addComponent(tf)
+  gui:addComponent(tf)
   return tf
 end
 
@@ -1217,7 +1238,7 @@ local function scrollBarBase(gui,x,y,width,height,scrollMax,onScroll)
   local sb=baseComponent(gui,x,y,width,height,"scrollbar",false)
   sb.scrollMax=scrollMax or 1
   sb.scrollPos=1
-  sb.length=math.max(width,height)
+  sb.length=math.max(sb.width,sb.height)
   assert(sb.length>2,"Scroll bars must be at least 3 long.")
 
   sb.onScroll=onScroll
@@ -1297,7 +1318,7 @@ local function addScrollBarV(gui,x,y,height,scrollMax, onScroll)
   sb.onBeginDrag=function(sb,tx,ty,button) sb:_onBeginDrag(ty,button) end
   sb.onDrag=function(sb,tx,ty,button) sb:_onDrag(ty,button) end
 
-  gui.addComponent(sb)
+  gui:addComponent(sb)
   return sb
 end
 
@@ -1311,29 +1332,110 @@ local function addScrollBarH(gui,x,y,width,scrollMax,onScroll)
   sb.onBeginDrag=function(sb,tx,ty,button) sb:_onBeginDrag(tx,button) end
   sb.onDrag=function(sb,tx,ty,button) sb:_onDrag(tx,button) end
 
-  gui.addComponent(sb)
+  gui:addComponent(sb)
   return sb
 end
 
 
+local function compositeBase(gui,x,y,width,height,objType,focusable)
+  local comp=baseComponent(gui,x,y,width,height,objType,focusable)
+  comp.bodyX,comp.bodyY,comp.bodyW,comp.bodyH=calcBody(comp)
+
+  comp.components={}
+
+  function comp.addComponent(obj,component)
+    obj.components[#obj.components+1]=component
+  end
+
+  return comp
+end
+
+local function scrollListBox(sb)
+  local lb=sb.listBox
+
+  for i=1,#lb.labels do
+    local listI=sb.scrollPos+i-1
+    if listI<=#lb.list then
+      lb.labels[i].state=lb.selectedLabel==listI and "selected" or nil
+      lb.labels[i].text=lb.list[listI]:sub(1,sb.width-2)..(" "):rep(lb.width-2-#lb.list[listI])
+      lb.labels[i]:draw()
+    end
+  end
+end
+
+local function clickListBox(lb,tx,ty,button)
+  if tx==lb.width then
+    lb.scrollBar:_onClick(ty,button)
+  else
+    tx,ty=correctForBorder(lb,tx,ty)
+    if ty>=1 and ty<=lb.bodyH then
+      --tx is now index of the label clicked on
+      if lb.selectedLabel then
+        local li=lb.selectedLabel-lb.scrollBar.scrollPos+1
+        if li>=1 and li<=lb.bodyH then
+          local l=lb.labels[li]
+          l.state=nil
+          l:draw()
+        end
+      end
+      lb.selectedLabel=ty+lb.scrollBar.scrollPos-1
+      lb.labels[ty].state="selected"
+      lb.labels[ty]:draw()
+    end
+  end
+
+end
+
+
+local function addListBox(gui,x,y,width,height,list)
+  local lb=compositeBase(gui,x,y,width,height,"listbox",true)
+  lb.list=list
+
+  lb.scrollBar=addScrollBarV(lb,lb.bodyW,lb.bodyY,lb.bodyH,math.max(1,#list-lb.bodyH+1),scrollListBox)
+  lb.scrollBar.class="listbox"
+  lb.scrollBar.listBox=lb
+
+  lb.scrollBar.posY=0
+  lb.scrollBar.height=lb.height
+  lb.scrollBar.length=lb.height
+
+  updateScrollBarGrip(lb.scrollBar)
+
+  lb.labels={}
+  lb.list=list
+  lb.onBeginDrag=function(lb,tx,ty,button) if tx==lb.width then lb.scrollBar:_onBeginDrag(ty,button) end end
+  lb.onDrag=function(lb,...) lb.scrollBar:onDrag(...) end
+  lb.onDrop=function(lb,...) lb.scrollBar:onDrop(...) end
+
+  for i=1,lb.bodyH do
+    lb.labels[i]=addLabel(lb,1,i,lb.bodyW-1,list[i] or "")
+    lb.labels[i].class="listbox"
+  end
+
+  lb.onClick=clickListBox
+  lb.draw=function(lb)
+    local styles=getAppliedStyles(lb)
+    drawBorder(lb,styles)
+    lb.scrollBar:draw()
+    for i=1,#lb.labels do
+      lb.labels[i]:draw()
+    end
+  end
+
+  gui:addComponent(lb)
+end
 
 
 function gml.create(x,y,width,height)
-  local screenWidth,screenHeight=component.gpu.getResolution()
 
-  local newGui={type="gui", handlers={}, components={}, style=defaultStyle }
-  assert(defaultStyle)
-  newGui.posX,newGui.posY,newGui.width,newGui.height=parsePosition(x,y,width,height,screenWidth,screenHeight)
-  newGui.bodyX,newGui.bodyY,newGui.bodyW,newGui.bodyH=calcBody(newGui)
+  local newGui=compositeBase(screen,x,y,width,height,"gui",false)
+  newGui.handlers={}
 
   local running=false
   function newGui.close()
     computer.pushSignal("gui_close")
   end
 
-  function newGui.addComponent(component)
-    newGui.components[#newGui.components+1]=component
-  end
 
   newGui.addHandler=guiAddHandler
 
@@ -1374,6 +1476,7 @@ function gml.create(x,y,width,height)
   newGui.addTextField=addTextField
   newGui.addScrollBarV=addScrollBarV
   newGui.addScrollBarH=addScrollBarH
+  newGui.addListBox=addListBox
 
   return newGui
 end
@@ -1384,6 +1487,6 @@ end
 --**********************
 
 defaultStyle=gml.loadStyle("default")
-
+screen.style=defaultStyle
 
 return gml
