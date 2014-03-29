@@ -1415,6 +1415,7 @@ local function addListBox(gui,x,y,width,height,list)
   lb.keyHandler=function(lb,char,code)
     if code==keyboard.keys.up then
       changeSelect(1)
+    end
   end
 
   lb.onClick=clickListBox
