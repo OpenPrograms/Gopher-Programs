@@ -1283,7 +1283,7 @@ local function scrollBarBase(gui,x,y,width,height,scrollMax,onScroll)
         updateScrollBarGrip(sb)
         sb:draw()
         if sb.onScroll then
-          sb:onScroll()
+          sb:onScroll(sb.scrollPos)
         end
       end
     end
