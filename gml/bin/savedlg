@@ -1,0 +1,87 @@
+--[[
+save/load dialog gui
+
+--]]
+package.loaded["gml"]=nil
+
+local gml=require("gml")
+local shell=require("shell")
+local filesystem=require("filesystem")
+
+
+
+local gui=gml.create("center","center",50,16)
+
+gui:addLabel(1,1,14,"Common Folders")
+local commonDirList=gui:addListBox(1,2,16,11,{"/","/usr/","/tmp/","/lib/","/bin/"})
+
+local contentsLabel=gui:addLabel(18,1,31,"contents of /")
+local directoryList=gui:addListBox(17,2,32,11,{})
+
+gui:addTextField(22,-2,26)
+gui:addLabel(17,-2,5,"File:")
+gui:addButton(-2,-1,8,1,"Open",gui.close)
+gui:addButton(-11,-1,8,1,"Cancel",gui.close)
+
+local curDirPath="/"
+
+local function updateDirectoryList(dir)
+  local list={}
+  if dir~="/" then
+    list[1]=".."
+  end
+  local nextFile,nextDir=#list+1,#list+1
+  for file in filesystem.list(dir) do
+    if filesystem.isDirectory(file) then
+      table.insert(list,nextDir,file)
+      next=nextDir+1
+    else
+      table.insert(list,nextFile,file)
+    end
+    nextFile=nextFile+1
+  end
+  curDirPath=dir
+  directoryList:updateList(list)
+  contentsLabel.text="contents of "..curDirPath
+  contentsLabel:draw()
+end
+
+local function onDirSelect(lb,prevIndex,selIndex)
+  updateDirectoryList(commonDirList:getSelected())
+end
+
+commonDirList.onChange=onDirSelect
+directoryList.onDoubleClick=function()
+  local selected=directoryList:getSelected()
+  if selected==".." then
+    selected=curDirPath:match("^(.*/)[^/]*/")
+  else
+    selected=curDirPath..selected
+  end
+  if filesystem.isDirectory(selected) then
+    updateDirectoryList(selected)
+  end
+end
+
+updateDirectoryList("/")
+
+gui:run()
+
+
+--[[
+ultimaely will integrate this into gml.lua and boil down to:
+
+filename = gml.filePicker(<"save" or "load"> [, startPath [, extensions ] ])
+
+startPath will determine waht folder the file list view starts on
+if startPath is a file, rather than a folder, will start in the containing folder
+and select that file, populating the textfield with it.
+
+extensions, if specified, can be a string or list of strings, and the file list
+will show only files matching that extension. For save, the extension will also be
+automatically applied to the name, if it does not end with it already.
+
+
+
+
+--]]
