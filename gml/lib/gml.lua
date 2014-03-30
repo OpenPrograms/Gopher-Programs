@@ -8,7 +8,7 @@ do whatever you want, just don't be a dick. Give
 me credit whenever you redistribute, modified or
 otherwise.
 
-For the latest updates and documentation, check
+For the latest updates and documentations, check
 out the github repo and it's wiki at
 https://github.com/OpenPrograms/Gopher-Programs
 
@@ -1395,7 +1395,7 @@ local function clickListBox(lb,tx,ty,button)
       --ty is now index of the label clicked on
       --but is it valid?
       if ty<=#lb.list then
-        lb:select(ty)
+        lb:select(ty+lb.scrollBar.scrollPos-1)
       end
     end
   end
