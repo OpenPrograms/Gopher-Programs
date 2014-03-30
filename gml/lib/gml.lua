@@ -24,6 +24,7 @@ local filesystem=require("filesystem")
 local keyboard=require("keyboard")
 local unicode=require("unicode")
 
+local doubleClickThreshold=.25
 
 local gml={}
 
@@ -60,7 +61,7 @@ local validDepths = {
   [8]=true,
 }
 
-local screen = { posX=1,posY=1,bodyX=1,bodyY=1, }
+local screen = { posX=1,posY=1,bodyX=1,bodyY=1, hidden=false, isHidden=function() return false end}
 screen.width,screen.height=component.gpu.getResolution()
 screen.bodyW,screen.bodyH=screen.width,screen.height
 
@@ -493,12 +494,12 @@ end
 
 
 local function drawLabel(label)
-  if not label.hidden then
+  if not label:isHidden() then
     local screenX,screenY=label:getScreenPosition()
     local fg, bg=findStyleProperties(label,"text-color","text-background")
     component.gpu.setForeground(fg)
     component.gpu.setBackground(bg)
-    component.gpu.set(screenX,screenY,label.text)
+    component.gpu.set(screenX,screenY,label.text:sub(1,label.width)..(" "):rep(label.width-#label.text))
     label.visible=true
   end
 end
@@ -506,7 +507,7 @@ end
 
 
 local function drawButton(button)
-  if not button.hidden then
+  if not button:isHidden() then
     local styles=getAppliedStyles(button)
     local gpu=component.gpu
 
@@ -543,7 +544,7 @@ end
 
 
 local function drawTextField(tf)
-  if not tf.hidden then
+  if not tf:isHidden() then
     local textFG,textBG,selectedFG,selectedBG=
         findStyleProperties(tf,"text-color","text-background","selected-color","selected-background")
     local screenX,screenY=tf:getScreenPosition()
@@ -603,71 +604,74 @@ end
 
 
 local function drawScrollBarH(bar)
-  local leftCh,rightCh,btnFG,btnBG,
-        barCh, barFG, barBG,
-        gripCh, gripFG, gripBG =
-    findStyleProperties(bar,
-        "button-ch-left","button-ch-right","button-color-fg","button-color-bg",
-        "bar-ch","bar-color-fg","bar-color-bg",
-        "grip-ch-h","grip-color-fg","grip-color-bg")
+  if not bar:isHidden() then
+    local leftCh,rightCh,btnFG,btnBG,
+          barCh, barFG, barBG,
+          gripCh, gripFG, gripBG =
+      findStyleProperties(bar,
+          "button-ch-left","button-ch-right","button-color-fg","button-color-bg",
+          "bar-ch","bar-color-fg","bar-color-bg",
+          "grip-ch-h","grip-color-fg","grip-color-bg")
 
-  local gpu=component.gpu
-  local screenX,screenY=bar:getScreenPosition()
+    local gpu=component.gpu
+    local screenX,screenY=bar:getScreenPosition()
 
-  local w,gs,ge=bar.width,bar.gripStart+screenX,bar.gripEnd+screenX
-  --buttons
-  gpu.setBackground(btnBG)
-  gpu.setForeground(btnFG)
-  gpu.set(screenX,screenY,leftCh)
-  gpu.set(screenX+w-1,screenY,rightCh)
+    local w,gs,ge=bar.width,bar.gripStart+screenX,bar.gripEnd+screenX
+    --buttons
+    gpu.setBackground(btnBG)
+    gpu.setForeground(btnFG)
+    gpu.set(screenX,screenY,leftCh)
+    gpu.set(screenX+w-1,screenY,rightCh)
 
-  --scroll area
-  gpu.setBackground(barBG)
-  gpu.setForeground(barFG)
+    --scroll area
+    gpu.setBackground(barBG)
+    gpu.setForeground(barFG)
 
-  gpu.set(screenX+1,screenY,barCh:rep(w-2))
+    gpu.set(screenX+1,screenY,barCh:rep(w-2))
 
-  --grip
-  gpu.setBackground(gripBG)
-  gpu.setForeground(gripFG)
-  gpu.set(gs,screenY,gripCh:rep(ge-gs+1))
-
+    --grip
+    gpu.setBackground(gripBG)
+    gpu.setForeground(gripFG)
+    gpu.set(gs,screenY,gripCh:rep(ge-gs+1))
+  end
 end
 
 local function drawScrollBarV(bar)
-  local upCh,dnCh,btnFG,btnBG,
-        barCh, barFG, barBG,
-        gripCh, gripFG, gripBG =
-    findStyleProperties(bar,
-        "button-ch-up","button-ch-down","button-color-fg","button-color-bg",
-        "bar-ch","bar-color-fg","bar-color-bg",
-        "grip-ch-v","grip-color-fg","grip-color-bg")
+  if not bar:isHidden() then
+    local upCh,dnCh,btnFG,btnBG,
+          barCh, barFG, barBG,
+          gripCh, gripFG, gripBG =
+      findStyleProperties(bar,
+          "button-ch-up","button-ch-down","button-color-fg","button-color-bg",
+          "bar-ch","bar-color-fg","bar-color-bg",
+          "grip-ch-v","grip-color-fg","grip-color-bg")
 
-  local gpu=component.gpu
-  local screenX,screenY=bar:getScreenPosition()
-  local h,gs,ge=bar.height,bar.gripStart+screenY,bar.gripEnd+screenY
-  --buttons
-  gpu.setBackground(btnBG)
-  gpu.setForeground(btnFG)
-  gpu.set(screenX,screenY,upCh)
-  gpu.set(screenX,screenY+h-1,dnCh)
+    local gpu=component.gpu
+    local screenX,screenY=bar:getScreenPosition()
+    local h,gs,ge=bar.height,bar.gripStart+screenY,bar.gripEnd+screenY
+    --buttons
+    gpu.setBackground(btnBG)
+    gpu.setForeground(btnFG)
+    gpu.set(screenX,screenY,upCh)
+    gpu.set(screenX,screenY+h-1,dnCh)
 
-  --scroll area
-  gpu.setBackground(barBG)
-  gpu.setForeground(barFG)
+    --scroll area
+    gpu.setBackground(barBG)
+    gpu.setForeground(barFG)
 
-  for screenY=screenY+1,gs-1 do
-    gpu.set(screenX,screenY,barCh)
-  end
-  for screenY=ge+1,screenY+h-2 do
-    gpu.set(screenX,screenY,barCh)
-  end
+    for screenY=screenY+1,gs-1 do
+      gpu.set(screenX,screenY,barCh)
+    end
+    for screenY=ge+1,screenY+h-2 do
+      gpu.set(screenX,screenY,barCh)
+    end
 
-  --grip
-  gpu.setBackground(gripBG)
-  gpu.setForeground(gripFG)
-  for screenY=gs,ge do
-    gpu.set(screenX,screenY,gripCh)
+    --grip
+    gpu.setBackground(gripBG)
+    gpu.setForeground(gripFG)
+    for screenY=gs,ge do
+      gpu.set(screenX,screenY,gripCh)
+    end
   end
 end
 
@@ -722,28 +726,31 @@ local function runGui(gui)
   gui.running=true
   --draw gui background, preserving underlying screen
   gui.prevTermState=frameAndSave(gui)
+  gui.hidden=false
 
   --drawing components
   local firstFocusable, prevFocusable
   for i=1,#gui.components do
-    if gui.components[i].focusable then
-      if firstFocusable==nil then
-        firstFocusable=gui.components[i]
-      else
-        gui.components[i].tabPrev=prevFocusable
-        prevFocusable.tabNext=gui.components[i]
+    if not gui.components[i].hidden then
+      if gui.components[i].focusable and not gui.components[i].hidden then
+        if firstFocusable==nil then
+          firstFocusable=gui.components[i]
+        else
+          gui.components[i].tabPrev=prevFocusable
+          prevFocusable.tabNext=gui.components[i]
+        end
+        prevFocusable=gui.components[i]
       end
-      if not gui.focusElement and not gui.components[i].hidden then
-        gui.focusElement=gui.components[i]
-        gui.focusElement.state="focus"
-      end
-      prevFocusable=gui.components[i]
+      gui.components[i]:draw()
     end
-    gui.components[i]:draw()
   end
   if firstFocusable then
     firstFocusable.tabPrev=prevFocusable
     prevFocusable.tabNext=firstFocusable
+    if not gui.focusElement and not gui.components[i].hidden then
+      gui.focusElement=gui.components[i]
+      gui.focusElement.state="focus"
+    end
   end
   if gui.focusElement and gui.focusElement.gotFocus then
     gui.focusElement.gotFocus()
@@ -759,13 +766,13 @@ local function runGui(gui)
   local function getComponentAt(tx,ty)
     for i=1,#gui.components do
       local c=gui.components[i]
-      if not c.hidden and c:contains(tx,ty) then
+      if not c:isHidden() and c:contains(tx,ty) then
         return c
       end
     end
   end
 
-  local lastClickTime, lastClickPos, dragButton, dragging=0,0,0,false
+  local lastClickTime, lastClickPos, lastClickButton, dragButton, dragging=0,{0,0},nil,nil,false
   local draggingObj=nil
 
   while true do
@@ -778,8 +785,8 @@ local function runGui(gui)
       if gui:contains(tx,ty) then
         tx=tx-gui.bodyX+1
         ty=ty-gui.bodyY+1
-        lastClickTime=computer.uptime()
         lastClickPos={tx,ty}
+        local tickTime=computer.uptime()
         dragButton=button
         local target=getComponentAt(tx,ty)
         clickedOn=target
@@ -787,10 +794,17 @@ local function runGui(gui)
           if target.focusable and target~=gui.focusElement then
             gui:changeFocusTo(clickedOn)
           end
-          if target.onClick then
+          if lastClickPos[1]==tx and lastClickPos[2]==ty and lastClickButton==button and
+              tickTime - lastClickTime<doubleClickThreshold then
+            if target.onDoubleClick then
+              target:onDoubleClick(tx-target.posX+1,ty-target.posY+1,button)
+            end
+          elseif target.onClick then
             target:onClick(tx-target.posX+1,ty-target.posY+1,button)
           end
         end
+        lastClickTime=tickTime
+        lastClickButton=button
       end
     elseif e[1]=="drag" then
       --if we didn't click /on/ something to start this drag, we do nada
@@ -886,6 +900,10 @@ local function baseComponent(gui,x,y,width,height,type,focusable)
       focusable=focusable,
       type=type,
     }
+
+  c.isHidden=function(c)
+     return c.hidden or c.gui:isHidden()
+    end
 
   c.posX, c.posY, c.width, c.height =
     parsePosition(x, y, width, height, gui.bodyW, gui.bodyH)
@@ -1217,11 +1235,11 @@ local function updateScrollBarGrip(sb)
 
   --grip size
   -- gripSize / height-2 == height / scrollMax
-  local gripSize=math.max(1,math.min(math.floor(math.min(1,length / max) * (length-2)),length-2))
+  local gripSize=math.max(1,math.min(math.floor(math.min(1,length / (max+length-2)) * (length-2)),length-2))
   if gripSize==length-2 then
     --grip fills everything
-    sb.gripStart=2
-    sb.gripEnd=length-1
+    sb.gripStart=1
+    sb.gripEnd=length-2
   else
     --grip position
     pos=round((pos-1)/(max-1)*(length-2-gripSize))+1
@@ -1242,6 +1260,7 @@ local function scrollBarBase(gui,x,y,width,height,scrollMax,onScroll)
   assert(sb.length>2,"Scroll bars must be at least 3 long.")
 
   sb.onScroll=onScroll
+
 
   updateScrollBarGrip(sb)
 
@@ -1355,11 +1374,15 @@ local function scrollListBox(sb)
 
   for i=1,#lb.labels do
     local listI=sb.scrollPos+i-1
+    local l=lb.labels[i]
     if listI<=#lb.list then
-      lb.labels[i].state=lb.selectedLabel==listI and "selected" or nil
-      lb.labels[i].text=lb.list[listI]:sub(1,sb.width-2)..(" "):rep(lb.width-2-#lb.list[listI])
-      lb.labels[i]:draw()
+      l.state=lb.selectedLabel==listI and "selected" or nil
+      l.text=lb.list[listI]
+    else
+      l.state=nil
+      l.text=""
     end
+    l:draw()
   end
 end
 
@@ -1369,20 +1392,69 @@ local function clickListBox(lb,tx,ty,button)
   else
     tx,ty=correctForBorder(lb,tx,ty)
     if ty>=1 and ty<=lb.bodyH then
-      --tx is now index of the label clicked on
-      if lb.selectedLabel then
-        local li=lb.selectedLabel-lb.scrollBar.scrollPos+1
-        if li>=1 and li<=lb.bodyH then
-          local l=lb.labels[li]
-          l.state=nil
-          l:draw()
-        end
+      --ty is now index of the label clicked on
+      --but is it valid?
+      if ty<=#lb.list then
+        lb:select(ty)
       end
-      lb.selectedLabel=ty+lb.scrollBar.scrollPos-1
-      lb.labels[ty].state="selected"
-      lb.labels[ty]:draw()
     end
   end
+
+end
+
+local function listBoxSelect(lb,index)
+  if index<1 or index>#lb.list then
+    error("index out of range to listBoxSelect",2)
+  end
+  local prevSelected=lb.selectedLabel
+  if index==prevSelected then
+    return
+  end
+
+  lb.selectedLabel=index
+  --do I need to scroll?
+  local scrolled=false
+  local scrollIndex=lb.scrollBar.scrollPos
+  if index<scrollIndex then
+    scrollIndex=index
+    scrolled=true
+  elseif index>scrollIndex+lb.bodyH-1 then
+    scrollIndex=index-lb.bodyH+1
+    scrolled=true
+  end
+  if scrolled then
+    --update scroll position
+    lb.scrollBar.scrollPos=scrollIndex
+    scrollListBox(lb.scrollBar)
+  else
+    if prevSelected>=scrollIndex and prevSelected<=scrollIndex+lb.bodyH-1 then
+      local pl=lb.labels[prevSelected-scrollIndex+1]
+      pl.state=nil
+      pl:draw()
+    end
+    local l=lb.labels[index-scrollIndex+1]
+    l.state="selected"
+    l:draw()
+  end
+
+  if lb.onChange then
+    lb:onChange(prevSelected,index)
+  end
+end
+
+
+local function getListBoxSelected(lb)
+  return lb.list[lb.selectedLabel]
+end
+
+local function updateListBoxList(lb,newList)
+  lb.list=newList
+  lb.scrollBar.scrollPos=1
+  lb.scrollBar.scrollMax=math.max(1,#newList-lb.bodyH+1)
+  updateScrollBarGrip(lb.scrollBar)
+  lb.selectedLabel=1
+  scrollListBox(lb.scrollBar)
+  lb:draw()
 
 end
 
@@ -1399,6 +1471,7 @@ local function addListBox(gui,x,y,width,height,list)
   lb.scrollBar.height=lb.height
   lb.scrollBar.length=lb.height
 
+  lb.selectedLabel=1
   updateScrollBarGrip(lb.scrollBar)
 
   lb.labels={}
@@ -1411,24 +1484,39 @@ local function addListBox(gui,x,y,width,height,list)
     lb.labels[i]=addLabel(lb,1,i,lb.bodyW-1,list[i] or "")
     lb.labels[i].class="listbox"
   end
+  lb.labels[1].state="selected"
+
+  lb.select=listBoxSelect
+  lb.getSelected=getListBoxSelected
 
   lb.keyHandler=function(lb,char,code)
     if code==keyboard.keys.up then
-      --changeSelect(1)
+      if lb.selectedLabel>1 then
+        lb:select(lb.selectedLabel-1)
+      end
+    elseif code==keyboard.keys.down then
+      if lb.selectedLabel<#lb.list then
+        lb:select(lb.selectedLabel+1)
+      end
     end
   end
 
+  lb.updateList=updateListBoxList
+
   lb.onClick=clickListBox
   lb.draw=function(lb)
-    local styles=getAppliedStyles(lb)
-    drawBorder(lb,styles)
-    lb.scrollBar:draw()
-    for i=1,#lb.labels do
-      lb.labels[i]:draw()
+    if not lb:isHidden() then
+      local styles=getAppliedStyles(lb)
+      drawBorder(lb,styles)
+      lb.scrollBar:draw()
+      for i=1,#lb.labels do
+        lb.labels[i]:draw()
+      end
     end
   end
 
   gui:addComponent(lb)
+  return lb
 end
 
 
@@ -1436,10 +1524,19 @@ function gml.create(x,y,width,height)
 
   local newGui=compositeBase(screen,x,y,width,height,"gui",false)
   newGui.handlers={}
+  newGui.hidden=true
 
   local running=false
   function newGui.close()
     computer.pushSignal("gui_close")
+  end
+
+  function newGui.addComponent(obj,component)
+    newGui.components[#obj.components+1]=component
+    if obj.focusElement==nil and component.focusable then
+      component.state="focus"
+      obj.focusElement=component
+    end
   end
 
 
@@ -1462,16 +1559,16 @@ function gml.create(x,y,width,height)
       gui.focusElement.state=nil
       if gui.focusElement.lostFocus then
         gui.focusElement.lostFocus()
-      else
+      elseif not gui.hidden then
         gui.focusElement:draw()
       end
-      gui.focusElement=target
-      target.state="focus"
-      if target.gotFocus then
-        target.gotFocus()
-      else
-        target:draw()
-      end
+    end
+    gui.focusElement=target
+    target.state="focus"
+    if target.gotFocus then
+      target.gotFocus()
+    elseif not gui.hidden then
+      target:draw()
     end
   end
 
