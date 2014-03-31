@@ -23,6 +23,7 @@ local shell=require("shell")
 local filesystem=require("filesystem")
 local keyboard=require("keyboard")
 local unicode=require("unicode")
+local gfxbuffer=require("gfxbuffer")
 
 local doubleClickThreshold=.25
 
@@ -61,7 +62,14 @@ local validDepths = {
   [8]=true,
 }
 
-local screen = { posX=1,posY=1,bodyX=1,bodyY=1, hidden=false, isHidden=function() return false end}
+local screen = {
+      posX=1, posY=1,
+      bodyX=1,bodyY=1,
+      hidden=false,
+      isHidden=function() return false end,
+      renderTarget=component.gpu
+    }
+
 screen.width,screen.height=component.gpu.getResolution()
 screen.bodyW,screen.bodyH=screen.width,screen.height
 
@@ -226,7 +234,7 @@ function getAppliedStyles(element)
   assert(styleRoot)
 
   --descend, unless empty, then back up... so... wtf
-  local depth,state,class,elementType=component.gpu.getDepth(),element.state or "*",element.class or "*", element.type
+  local depth,state,class,elementType=element.renderTarget.getDepth(),element.state or "*",element.class or "*", element.type
 
   local nodes={styleRoot}
   local function filterDown(nodes,key)
@@ -343,7 +351,7 @@ local function drawBorder(element,styles)
   local bodyX,bodyY=screenX,screenY
   local bodyW,bodyH=width,height
 
-  local gpu=component.gpu
+  local gpu=element.renderTarget
 
   if border then
     gpu.setBackground(borderBG)
@@ -419,13 +427,13 @@ local function frameAndSave(element)
 
   local pcb=term.getCursorBlink()
   local curx,cury=term.getCursor()
-  local pfg,pbg=component.gpu.getForeground(),component.gpu.getBackground()
+  local pfg,pbg=element.renderTarget.getForeground(),element.renderTarget.getBackground()
   --preserve background
   for ly=1,height do
     t[ly]={}
-    local str, cfg, cbg=component.gpu.get(x,y+ly-1)
+    local str, cfg, cbg=element.renderTarget.get(x,y+ly-1)
     for lx=2,width do
-      local ch, fg, bg=component.gpu.get(x+lx-1,y+ly-1)
+      local ch, fg, bg=element.renderTarget.get(x+lx-1,y+ly-1)
       if fg==cfg and bg==cbg then
         str=str..ch
       else
@@ -444,19 +452,17 @@ local function frameAndSave(element)
 
   local blankRow=fillCh:rep(bodyW)
 
-  component.gpu.setForeground(fillFG)
-  component.gpu.setBackground(fillBG)
+  element.renderTarget.setForeground(fillFG)
+  element.renderTarget.setBackground(fillBG)
   term.setCursorBlink(false)
 
-  for y=bodyY,bodyY+bodyH-1 do
-    component.gpu.set(bodyX,y,blankRow)
-  end
+  element.renderTarget.fill(bodyX,bodyY,bodyW,bodyH,fillCh)
 
   return {curx,cury,pcb,pfg,pbg, t}
 
 end
 
-local function restoreFrame(x,y,prevState)
+local function restoreFrame(renderTarget,x,y,prevState)
 
   local curx,cury,pcb,pfg,pbg, behind=table.unpack(prevState)
 
@@ -464,23 +470,25 @@ local function restoreFrame(x,y,prevState)
     local lx=x
     for i=1,#behind[ly] do
       local str,fg,bg=table.unpack(behind[ly][i])
-      component.gpu.setForeground(fg)
-      component.gpu.setBackground(bg)
-      component.gpu.set(lx,ly+y-1,str)
-      lx=lx+#str
+      renderTarget.setForeground(fg)
+      renderTarget.setBackground(bg)
+      renderTarget.set(lx,ly+y-1,str)
+      lx=lx+unicode.len(str)
     end
   end
 
   term.setCursor(curx,cury)
-  component.gpu.setForeground(pfg)
-  component.gpu.setBackground(pbg)
+  renderTarget.setForeground(pfg)
+  renderTarget.setBackground(pbg)
   term.setCursorBlink(pcb)
+  renderTarget.flush()
+
 end
 
 local function elementHide(element)
   if element.visible then
     element.visible=false
-    element.gui.redrawRect(element.posX,element.posY,element.width,1)
+    element.gui:redrawRect(element.posX,element.posY,element.width,1)
   end
   element.hidden=true
 end
@@ -497,9 +505,9 @@ local function drawLabel(label)
   if not label:isHidden() then
     local screenX,screenY=label:getScreenPosition()
     local fg, bg=findStyleProperties(label,"text-color","text-background")
-    component.gpu.setForeground(fg)
-    component.gpu.setBackground(bg)
-    component.gpu.set(screenX,screenY,label.text:sub(1,label.width)..(" "):rep(label.width-#label.text))
+    label.renderTarget.setForeground(fg)
+    label.renderTarget.setBackground(bg)
+    label.renderTarget.set(screenX,screenY,label.text:sub(1,label.width)..(" "):rep(label.width-#label.text))
     label.visible=true
   end
 end
@@ -509,7 +517,7 @@ end
 local function drawButton(button)
   if not button:isHidden() then
     local styles=getAppliedStyles(button)
-    local gpu=component.gpu
+    local gpu=button.renderTarget
 
     local fg,bg,
           fillFG,fillBG,fillCh=
@@ -548,7 +556,7 @@ local function drawTextField(tf)
     local textFG,textBG,selectedFG,selectedBG=
         findStyleProperties(tf,"text-color","text-background","selected-color","selected-background")
     local screenX,screenY=tf:getScreenPosition()
-    local gpu=component.gpu
+    local gpu=tf.renderTarget
 
     --grab the subset of text visible
     local text=tf.text
@@ -613,7 +621,7 @@ local function drawScrollBarH(bar)
           "bar-ch","bar-color-fg","bar-color-bg",
           "grip-ch-h","grip-color-fg","grip-color-bg")
 
-    local gpu=component.gpu
+    local gpu=bar.renderTarget
     local screenX,screenY=bar:getScreenPosition()
 
     local w,gs,ge=bar.width,bar.gripStart+screenX,bar.gripEnd+screenX
@@ -646,7 +654,7 @@ local function drawScrollBarV(bar)
           "bar-ch","bar-color-fg","bar-color-bg",
           "grip-ch-v","grip-color-fg","grip-color-bg")
 
-    local gpu=component.gpu
+    local gpu=bar.renderTarget
     local screenX,screenY=bar:getScreenPosition()
     local h,gs,ge=bar.height,bar.gripStart+screenY,bar.gripEnd+screenY
     --buttons
@@ -711,7 +719,7 @@ local function cleanup(gui)
 
   --hide gui, redraw beneath?
   if gui.prevTermState then
-    restoreFrame(gui.posX,gui.posY,gui.prevTermState)
+    restoreFrame(gui.renderTarget,gui.posX,gui.posY,gui.prevTermState)
     gui.prevTermState=nil
   end
 end
@@ -776,6 +784,7 @@ local function runGui(gui)
   local draggingObj=nil
 
   while true do
+    gui.renderTarget:flush()
     local e={event.pull()}
     if e[1]=="gui_close" then
       break
@@ -899,6 +908,7 @@ local function baseComponent(gui,x,y,width,height,type,focusable)
       style=gui.style,
       focusable=focusable,
       type=type,
+      renderTarget=gui.renderTarget,
     }
 
   c.isHidden=function(c)
@@ -1520,11 +1530,12 @@ local function addListBox(gui,x,y,width,height,list)
 end
 
 
-function gml.create(x,y,width,height)
+function gml.create(x,y,width,height,renderTarget)
 
   local newGui=compositeBase(screen,x,y,width,height,"gui",false)
   newGui.handlers={}
   newGui.hidden=true
+  newGui.renderTarget=gfxbuffer.create(renderTarget)
 
   local running=false
   function newGui.close()
@@ -1542,15 +1553,15 @@ function gml.create(x,y,width,height)
 
   newGui.addHandler=guiAddHandler
 
-  function newGui.redrawRect(x,y,w,h)
+  function newGui.redrawRect(gui,x,y,w,h)
     local fillCh,fillFG,fillBG=findStyleProperties(newGui,"fill-ch","fill-color-fg","fill-color-bg")
     local blank=(fillCh):rep(w)
-    component.gpu.setForeground(fillFG)
-    component.gpu.setBackground(fillBG)
+    gui.renderTarget.setForeground(fillFG)
+    gui.renderTarget.setBackground(fillBG)
 
     x=x+newGui.bodyX-1
     for y=y+newGui.bodyY-1,y+h+newGui.bodyY-2 do
-      component.gpu.set(x,y,blank)
+      gui.renderTarget.set(x,y,blank)
     end
   end
 
@@ -1584,18 +1595,16 @@ function gml.create(x,y,width,height)
       local styles=getAppliedStyles(gui)
       local bodyX,bodyY,bodyW,bodyH=drawBorder(gui,styles)
       local fillCh,fillFG,fillBG=extractProperties(gui,styles,"fill-ch","fill-color-fg","fill-color-bg")
-      local blankRow=fillCh:rep(bodyW)
 
-      component.gpu.setForeground(fillFG)
-      component.gpu.setBackground(fillBG)
+      gui.renderTarget.setForeground(fillFG)
+      gui.renderTarget.setBackground(fillBG)
       term.setCursorBlink(false)
 
-      for y=bodyY,bodyY+bodyH-1 do
-        component.gpu.set(bodyX,y,blankRow)
-      end
+      gui.fill(bodyX,bodyY,bodyW,bodyH,fillCh)
 
       for i=1,#gui.components do
         gui.components[i]:draw()
+        gui.renderTarget:flush()
       end
     end
 

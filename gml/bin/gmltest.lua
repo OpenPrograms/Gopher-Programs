@@ -1,5 +1,6 @@
 --just hrere to force reloading the api so I don't have to reboot
-package.loaded["gml"]=nil
+package.loaded.gml=nil
+package.loaded.gfxbuffer=nil
 
 local gml=require("gml")
 local component=require("component")

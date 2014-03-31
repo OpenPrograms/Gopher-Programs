@@ -2,7 +2,8 @@
 save/load dialog gui
 
 --]]
-package.loaded["gml"]=nil
+package.loaded.gml=nil
+package.loaded.gfxbuffer=nil
 
 local gml=require("gml")
 local shell=require("shell")

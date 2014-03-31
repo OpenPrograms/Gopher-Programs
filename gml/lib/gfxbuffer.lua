@@ -1,4 +1,5 @@
 local component=require("component")
+local unicode=require("unicode")
 
 local colorutils=require("colorutils")
 
@@ -45,28 +46,29 @@ function bufferMeta.setForeground(buffer,color)
 end
 
 
-function bufferMeta.buffer_get(buffer,x,y)
-  buffer.flush()
-  return parent.get(x,y)
-end
-
 function bufferMeta.copy(buffer,x,y,w,h,dx,dy)
   buffer.flush()
-  return parent.copy(x,y,w,h,dx,dy)
+  return buffer.parent.copy(x,y,w,h,dx,dy)
 end
 
 function bufferMeta.fill(buffer,x,y,w,h,char)
   buffer.flush()
-  return parent.fill(x,y,w,h,char)
+  buffer.parent.setForeground(buffer.colorForeground)
+  buffer.parent.setBackground(buffer.colorBackground)
+  return buffer.parent.fill(x,y,w,h,char)
 end
 
+function bufferMeta.get(buffer,x,y)
+  buffer.flush()
+  return buffer.parent.get(x,y)
+end
 
 function bufferMeta.set(buffer,x,y,str)
   local spans=buffer.spans
 
   local spanI=1
   local color=buffer.color
-  local e=x+#str-1
+  local e=x+unicode.len(str)-1
 
   while spans[spanI] and (spans[spanI].y<y or spans[spanI].y==y and spans[spanI].e<x) do
     spanI=spanI+1
@@ -76,9 +78,10 @@ function bufferMeta.set(buffer,x,y,str)
 
   if not spans[spanI] then
     debugPrint("just inserting at "..spanI)
-    span={str=str,e=e,x=x,y=y,color=color}
+    local span={str=str,e=e,x=x,y=y,color=color}
     spans[spanI]=span
   else
+    local span=spans[spanI]
     debugPrint("scanned to span "..spanI)
     if span.y==y and span.x<e then
       debugPrint("it starts before I end.")
@@ -87,7 +90,7 @@ function bufferMeta.set(buffer,x,y,str)
         --we can merge. Yay.
         --splice myself in
         debugPrint("splicing at "..math.max(0,(x-span.x)))
-        local a,c=span.str:sub(1,math.max(0,x-span.x)), span.str:sub(e-span.x+2)
+        local a,c=unicode.sub(span.str,1,math.max(0,x-span.x)), unicode.sub(span.str,e-span.x+2)
         debugPrint("before=\""..a.."\", after=\""..c..'"')
         span.str=a..str..c
         --correct x and e(nd)
@@ -101,20 +104,20 @@ function bufferMeta.set(buffer,x,y,str)
         --can't, gonna have to make a new span
         --but first, split this guy as needed
         debugPrint("can't merge. Splitting")
-        local a,b=span.str:sub(1,math.max(0,x-span.x)),span.str:sub(e-span.x+2)
-        if #a>0 then
+        local a,b=unicode.sub(span.str,1,math.max(0,x-span.x)),unicode.sub(span.str,e-span.x+2)
+        if unicode.len(a)>0 then
           span.str=a
-          span.e=span.x+#a
+          span.e=span.x+unicode.len(a)
           --span is a new span
           span={str=true,e=true,x=true,y=y,color=span.color}
           --insert after this span
           spanI=spanI+1
           table.insert(spans,spanI,span)
         end
-        if #b>0 then
+        if unicode.len(b)>0 then
           span.str=b
           span.x=e+1
-          span.e=span.x+#b
+          span.e=span.x+unicode.len(b)
 
           --and another new span
           span={str=true,e=true,x=true,y=y,color=color}
@@ -128,16 +131,18 @@ function bufferMeta.set(buffer,x,y,str)
         span.y=y
       end
     else
-      --starts inside or after me. tf, missed whole case.
+      --starts after me. just insert.
+      local span={x=x,e=e,y=y,color=color,str=str}
+      table.insert(spans,spanI,span)
     end
     --ok. We are span. We are at spanI. We've inserted ourselves. Now just check if we've obliterated anyone.
     --while the next span starts before I end...
     spanI=spanI+1
     while spans[spanI] and spans[spanI].y==y and spans[spanI].x<=e do
-      span=spans[spanI]
+      local span=spans[spanI]
       if span.e>e then
         --it goes past me, we just circumcise it
-        span.str=span.str:sub(e-span.x+2)
+        span.str=unicode.sub(span.str,e-span.x+2)
         span.x=e+1
         break--and there can't be more
       end
@@ -161,6 +166,12 @@ function bufferMeta.flush(buffer)
   --and all with common fg together within same bg.
   table.sort(buffer.spans,
       function(spanA,spanB)
+        if spanA.color==spanB.color then
+          if spanA.y==spanB.y then
+            return spanA.x<spanB.x
+          end
+          return spanA.y<spanB.y
+        end
         return spanA.color<spanB.color
       end )
 
