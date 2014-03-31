@@ -210,6 +210,7 @@ end
 
 function canvasMeta.draw(canvas,targX,targY)
   --TODO: make better. This is a quick'n'dirty to test the rest.
+  local parent=canvas.parent
   local pfg,pbg=parent.getForeground(), parent.getBackground()
   for y=1,canvas.height do
     local str,cfg,cbg=canvas.get(1,y)
