@@ -233,9 +233,9 @@ function canvasMeta.fill(canvas,x,y,w,h,char)
   end
 end
 
-function canvasMeta.draw(canvas,target,targX,targY)
+function canvasMeta.draw(canvas,targX,targY)
   --TODO: make better. This is a quick'n'dirty to test the rest.
-  local pfg,pbg=target.getForeground(), target.getBackground()
+  local pfg,pbg=parent.getForeground(), parent.getBackground()
   for y=1,canvas.height do
     local str,cfg,cbg=canvas.get(1,y)
     local sx=1
@@ -245,31 +245,32 @@ function canvasMeta.draw(canvas,target,targX,targY)
       if fg==cfg and bg==cbg then
         str=str..ch
       else
-        target.setForeground(cfg)
-        target.setBackground(cbg)
-        target.set(sx+targX-1,y+targY-1,str)
+        parent.setForeground(cfg)
+        parent.setBackground(cbg)
+        parent.set(sx+targX-1,y+targY-1,str)
         str,cfg,cbg,sx=ch,fg,bg,x
       end
     end
-    target.setForeground(cfg)
-    target.setBackground(cbg)
-    target.set(sx+targX-1,y+targY-1,str)
+    parent.setForeground(cfg)
+    parent.setBackground(cbg)
+    parent.set(sx+targX-1,y+targY-1,str)
   end
 
-  target.setForeground(pfg)
-  target.setBackground(pbg)
+  parent.setForeground(pfg)
+  parent.setBackground(pbg)
 
 end
 
 
 function canvas.create(width,height,depth,parent)
+  parent=parent or component.gpu
   if width==nil then
-    width,height=component.gpu.getResolution()
+    width,height=parent.getResolution()
   elseif height==nil then
-    _,height=component.gpu.getResolution()
+    _,height=parent.getResolution()
   end
 
-  depth=depth or component.gpu.getDepth()
+  depth=depth or parent.getDepth()
 
   local posToIndex=depth==8 and canvas_posToIndex8 or (depth==4 and canvas_posToIndex4 or canvas_posToIndex1)
   local get=depth==8 and canvas_get8 or (depth==4 and canvas_get4 or canvas_get1)
@@ -280,6 +281,7 @@ function canvas.create(width,height,depth,parent)
       depth=depth,
       width=width,
       height=height,
+      parent=parent,
     }
 
 
