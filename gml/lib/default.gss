@@ -22,6 +22,7 @@
 
 }
 
+
 gui {
   border: true;
   border-top: true;
@@ -130,4 +131,64 @@ label.listbox:selected {
   text-background: 0x0000ff;
 
 }
+
+
+/*one-bit styles*/
+*!1 {
+  text-color:0xffffff;
+  text-background:0x000000;
+
+  border-color-fg: 0;
+  border-color-bg: 0xffffff;  
+
+  fill-color-fg: 0xffffff;
+  fill-color-bg: 0x000000;
+
+  button-color-fg: 0x000000;
+  button-color-bg: 0xffffff;
+  bar-color-fg: 0xffffff;
+  bar-color-bg: 0x000000;
+  grip-color-fg: 0x000000;
+  grip-color-bg: 0xffffff;
+  
+}
+
+listbox!1 {
+  border-color-fg: 0xffffff;
+  border-color-bg: 0x000000;  
+}
+listbox:focus!1 {
+  border-color-fg: 0x000000;
+  border-color-bg: 0xffffff;  
+}
+
+textfield!1 {
+  text-color: 0x000000;
+  text-background: 0xffffff;  
+}
+
+textfield:focus!1 {
+  selected-color: 0x0;
+  selected-background: 0xffffff;
+  text-color: 0xffffff;
+  text-background: 0x000000;  
+}
+
+button!1 {
+  text-color:0x000000;
+  text-background:0xffffff;
+
+  border-color-fg: 0;
+  border-color-bg: 0xffffff;  
+
+  fill-color-fg: 0x000000;
+  fill-color-bg: 0xffffff;  
+}
+
+label.listbox:selected!1 {
+  text-color: 0x000000;
+  text-background: 0xffffff;
+
+}
+
 

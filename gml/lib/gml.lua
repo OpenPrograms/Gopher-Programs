@@ -297,7 +297,7 @@ local function parsePosition(x,y,width,height,maxWidth, maxHeight)
   elseif x=="right" then
     x=maxWidth-width+1
   elseif x=="center" then
-    x=math.floor((maxWidth-width)/2)
+    x=math.max(1,math.floor((maxWidth-width)/2))
   elseif x<0 then
     x=maxWidth-width+2+x
   elseif x<1 then
@@ -311,7 +311,7 @@ local function parsePosition(x,y,width,height,maxWidth, maxHeight)
   elseif y=="bottom" then
     y=maxHeight-height+1
   elseif y=="center" then
-    y=math.floor((maxHeight-height)/2)
+    y=math.max(1,math.floor((maxHeight-height)/2))
   elseif y<0 then
     y=maxHeight-height+2+y
   elseif y<1 then
