@@ -202,9 +202,7 @@ function canvasMeta.copy(canvas,x,y,w,h,dx,dy)
   y,h=constrain(y,h,canvas.height,dy)
 
   if dy>0 then
-    local t=sy
-    sy=ey
-    ey=t
+    sy,ey=ey,sy
     ystep=-1
   end
 
