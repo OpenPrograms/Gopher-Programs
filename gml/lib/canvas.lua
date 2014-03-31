@@ -8,7 +8,15 @@ parents, and do sorting and grouping to optimally draw those buffers up to their
 
 --]]
 local component=require("component")
+local colorutils=require("colorutils")
 
+--copy these to file local, they're called a lot in performance-intensive loops
+local convColor_hto8=colorutils.convColor_hto8
+local convColor_hto4=colorutils.convColor_hto4
+local convColor_hto1=colorutils.convColor_hto1
+local convColor_8toh=colorutils.convColor_8toh
+local convColor_4toh=colorutils.convColor_4toh
+local convColor_1toh=colorutils.convColor_1toh
 
 local canvas={}
 local canvasMeta={}
@@ -18,37 +26,6 @@ local function round(x)
 end
 
 
-local function convColor_hto8(hex)
-  local r,g,b=bit32.rshift(hex,16),bit32.rshift(hex,8)%256,hex%256
-  r=round(r*7/255)
-  g=round(g*7/255)
-  b=round(b*3/255)
-  return r*32+g*4+b
-end
-
-local function convColor_8toh(c)
-  local r,g,b=math.floor(c/32),math.floor(c/4)%8,c%4
-  r=round(r*255/7)
-  g=round(g*255/7)
-  b=round(b*255/3)
-  return r*65536+g*256+b
-end
-
-function _G.convColor_hto4(hex)
-  local r,g,b=bit32.rshift(hex,16),bit32.rshift(hex,8)%256,hex%256
-  r=round(r/255)
-  g=round(g*3/255)
-  b=round(b/255)
-  return r*8+g*2+b
-end
-
-function _G.convColor_4toh(c)
-  local r,g,b=math.floor(c/8),math.floor(c/2)%4,c%2
-  r=r*0xff0000
-  g=round(g*0xff/3)*256
-  b=b*0x0000ff
-  return r+g+b
-end
 
 local function canvas_initBuffer(canvas)
   local color="2 "
@@ -73,10 +50,6 @@ local function canvas_posToIndex1(canvas,x,y)
   return (x-1+(y-1)*canvas.width)*2+1
 end
 
-function canvasMeta.getResolution(canvas)
-  return canvas.width, canvas.height
-end
-
 local function colorToStr8(fg,bg)
   return string.format("%02x%02x",convColor_hto8(fg),convColor_hto8(bg))
 end
@@ -96,6 +69,10 @@ function canvasMeta.strToSpan(canvas,string)
     outStr=outStr..color..ch
   end
   return outStr
+end
+
+function canvasMeta.getResolution(canvas)
+  return canvas.width, canvas.height
 end
 
 function canvasMeta.setResolution(canvas,width,height)
@@ -291,7 +268,7 @@ function canvas.create(width,height,depth,parent)
 
   canvas_initBuffer(newCanvas)
 
-  setmetatable(newCanvas,{__index=function(tbl,key) local v=canvasMeta[key] if type(v)=="function" then return function(...) return canvasMeta[key](tbl,...) end end return v end})
+  setmetatable(newCanvas,{__index=function(tbl,key) local v=canvasMeta[key] if type(v)=="function" then return function(...) return v(tbl,...) end end return v end})
 
   newCanvas.colorStr=newCanvas.colorToStr(0xffffff,0x000000)
 
