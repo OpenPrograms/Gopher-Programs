@@ -1580,6 +1580,24 @@ function gml.create(x,y,width,height)
   newGui.addScrollBarV=addScrollBarV
   newGui.addScrollBarH=addScrollBarH
   newGui.addListBox=addListBox
+  newGui.draw=function(gui)
+      local styles=getAppliedStyles(gui)
+      local bodyX,bodyY,bodyW,bodyH=drawBorder(gui,styles)
+      local fillCh,fillFG,fillBG=extractProperties(gui,styles,"fill-ch","fill-color-fg","fill-color-bg")
+      local blankRow=fillCh:rep(bodyW)
+
+      component.gpu.setForeground(fillFG)
+      component.gpu.setBackground(fillBG)
+      term.setCursorBlink(false)
+
+      for y=bodyY,bodyY+bodyH-1 do
+        component.gpu.set(bodyX,y,blankRow)
+      end
+
+      for i=1,#gui.components do
+        gui.components[i]:draw()
+      end
+    end
 
   return newGui
 end
