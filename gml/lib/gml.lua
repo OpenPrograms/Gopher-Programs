@@ -78,7 +78,7 @@ end
 
 function gml.loadStyle(name)
   --search for file
-  local fullName=name
+  local fullname=name
   if name:match(".gss$") then
     name=name:match("^(.*)%.gss$")
   else
