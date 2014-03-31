@@ -30,15 +30,17 @@ local function updateDirectoryList(dir)
   if dir~="/" then
     list[1]=".."
   end
-  local nextFile,nextDir=#list+1,#list+1
+  local nextDir=#list+1
   for file in filesystem.list(dir) do
     if filesystem.isDirectory(file) then
+      if file:sub(-1)~="/" then
+        file=file.."/"
+      end
       table.insert(list,nextDir,file)
-      next=nextDir+1
+      nextDir=nextDir+1
     else
-      table.insert(list,nextFile,file)
+      table.insert(list,file)
     end
-    nextFile=nextFile+1
   end
   curDirPath=dir
   directoryList:updateList(list)
