@@ -82,7 +82,7 @@ function gml.loadStyle(name)
   if name:match(".gss$") then
     name=name:match("^(.*)%.gss$")
   else
-    fullname=name..".gss"
+    fullName=name..".gss"
   end
 
   local filepath
