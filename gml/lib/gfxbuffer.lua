@@ -162,6 +162,10 @@ end
 
 function bufferMeta.flush(buffer)
   debugPrint("flush?")
+  if #buffer.spans==0 then
+    return
+  end
+
   --sort by colors. bg is added as high value, so this will group all with common bg together,
   --and all with common fg together within same bg.
   table.sort(buffer.spans,

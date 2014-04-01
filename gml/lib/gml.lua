@@ -428,12 +428,13 @@ local function frameAndSave(element)
   local pcb=term.getCursorBlink()
   local curx,cury=term.getCursor()
   local pfg,pbg=element.renderTarget.getForeground(),element.renderTarget.getBackground()
+  local rtg=element.renderTarget.get
   --preserve background
   for ly=1,height do
     t[ly]={}
-    local str, cfg, cbg=element.renderTarget.get(x,y+ly-1)
+    local str, cfg, cbg=rtg(x,y+ly-1)
     for lx=2,width do
-      local ch, fg, bg=element.renderTarget.get(x+lx-1,y+ly-1)
+      local ch, fg, bg=rtg(x+lx-1,y+ly-1)
       if fg==cfg and bg==cbg then
         str=str..ch
       else
@@ -443,7 +444,6 @@ local function frameAndSave(element)
     end
     t[ly][#t[ly]+1]={str,cfg,cbg}
   end
-
   local styles=getAppliedStyles(element)
 
   local bodyX,bodyY,bodyW,bodyH=drawBorder(element,styles)
