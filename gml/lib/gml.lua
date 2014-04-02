@@ -858,6 +858,7 @@ local function runGui(gui)
 
     elseif e[1]=="key_down" then
       local char,code=e[3],e[4]
+      --tab
       if code==15 and gui.focusElement then
         local newFocus=gui.focusElement
         if keyboard.isShiftDown() then
@@ -890,6 +891,7 @@ local function runGui(gui)
       elseif gui.focusElement and gui.focusElement.keyHandler then
         gui.focusElement:keyHandler(char,code)
       end
+
     end
   end
 
@@ -1003,10 +1005,10 @@ local function insertTextTF(tf,text)
   end
 end
 
-local function addTextField(gui,x,y,width)
+local function addTextField(gui,x,y,width,text)
   local tf=baseComponent(gui,x,y,width,1,"textfield",true)
 
-  tf.text=""
+  tf.text=text or ""
   tf.cursorIndex=1
   tf.scrollIndex=1
   tf.selectStart=1
@@ -1510,6 +1512,8 @@ local function addListBox(gui,x,y,width,height,list)
       if lb.selectedLabel<#lb.list then
         lb:select(lb.selectedLabel+1)
       end
+    elseif code==keyboard.keys.enter and lb.onEnter then
+      lb:onEnter()
     end
   end
 

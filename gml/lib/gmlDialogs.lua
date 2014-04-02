@@ -1,24 +1,19 @@
 --[[
-save/load dialog gui
+Basic & Common Forms and Dialogs
 
-**NOTE** This is the actual source of the filePicker function in the gmlDialogs library.
-There is no reason to reproduce this in your code, it is simple included as example code
-for using the gml library to create guis.
-If you want to use this file picker, just require gmlDialogs and call
-gmlDialogs.filePicker()
-
-See the wiki for documentation of the methods
-TODO: link here when doc exists...
+a collection of common dialogs and forms for use in programs.
+These dialogs can be used even whether or not your program otherwise
+uses the gml library.
 
 --]]
-package.loaded.gml=nil
-package.loaded.gfxbuffer=nil
-
 local gml=require("gml")
 local shell=require("shell")
 local filesystem=require("filesystem")
 
-function filePicker(mode,curDir,name,extension)
+local gmlDialogs={}
+
+
+function gmlDialogs.filePicker(mode,curDir,name,extension)
   checkArg(1,mode,"string")
   checkArg(2,path,"nil","string")
   checkArg(3,name,"nil","string")
@@ -52,7 +47,7 @@ function filePicker(mode,curDir,name,extension)
 
   local filename=gui:addTextField(22,-2,26,name)
   local fileLabel=gui:addLabel(17,-2,5,"File:")
-  gui:addButton(-2,-1,8,1,"Open",function()
+  gui:addButton(-2,-1,8,1,mode and "Save" or "Open",function()
       --require an actual filename
       local ext=filename.text
       local t=curDir..filename.text
@@ -151,22 +146,6 @@ function filePicker(mode,curDir,name,extension)
   return result
 end
 
-print(filePicker("save","/usr/","derp.lua","lua"))
 
---[[
-ultimaely will integrate this into gml.lua and boil down to:
+return gmlDialogs
 
-filename = gml.filePicker(<"save" or "load"> [, startPath [, extensions ] ])
-
-startPath will determine waht folder the file list view starts on
-if startPath is a file, rather than a folder, will start in the containing folder
-and select that file, populating the textfield with it.
-
-extensions, if specified, can be a string or list of strings, and the file list
-will show only files matching that extension. For save, the extension will also be
-automatically applied to the name, if it does not end with it already.
-
-
-
-
---]]
