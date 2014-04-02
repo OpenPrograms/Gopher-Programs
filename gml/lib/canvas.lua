@@ -18,7 +18,7 @@ local convColor_8toh=colorutils.convColor_8toh
 local convColor_4toh=colorutils.convColor_4toh
 local convColor_1toh=colorutils.convColor_1toh
 
-local canvas={}
+local canvas={VERSION="1.0"}
 local canvasMeta={}
 
 local function round(x)

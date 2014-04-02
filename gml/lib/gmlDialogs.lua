@@ -10,7 +10,7 @@ local gml=require("gml")
 local shell=require("shell")
 local filesystem=require("filesystem")
 
-local gmlDialogs={}
+local gmlDialogs={VERSION="1.0"}
 
 
 function gmlDialogs.filePicker(mode,curDir,name,extension)
@@ -185,13 +185,13 @@ function gmlDialogs.messageBox(message,buttons)
 
   local labels={}
   for i=1,#lines do
-    labels[i]=gui:addLabel(3,1+i,26,lines[i])
+    labels[i]=gui:addLabel(2,1+i,26,lines[i])
   end
 
   local buttonObjs={}
   --now the buttons
 
-  local xpos=3
+  local xpos=2
   for i=1,#buttons do
     if type(buttons[i])~="string" then eror("messageBox must be passed an array of strings for buttons",2) end
     if i==#buttons then xpos=-2 end

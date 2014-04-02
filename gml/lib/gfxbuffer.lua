@@ -3,7 +3,7 @@ local unicode=require("unicode")
 
 local colorutils=require("colorutils")
 
-local buffer={}
+local buffer={VERSION="1.0"}
 local bufferMeta={}
 
 local debugPrint=function() end

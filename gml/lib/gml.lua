@@ -27,7 +27,7 @@ local gfxbuffer=require("gfxbuffer")
 
 local doubleClickThreshold=.25
 
-local gml={}
+local gml={VERSION="1.0"}
 
 local defaultStyle=nil
 
