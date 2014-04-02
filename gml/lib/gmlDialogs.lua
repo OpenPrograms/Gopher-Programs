@@ -147,5 +147,65 @@ function gmlDialogs.filePicker(mode,curDir,name,extension)
 end
 
 
+function gmlDialogs.messageBox(message,buttons)
+  checkArg(1,message,"string")
+  checkArg(2,buttons,"table","nil")
+
+  local buttons=buttons or {"cancel","ok"}
+  local choice
+
+  --do some figuring
+  local lines={}
+  message:gsub("([^\n]+)",function(line) lines[#lines+1]=line end)
+  local i=1
+  while i<=#lines do
+    if #lines[i]>26 then
+      local s,rs=lines[i],lines[i]:reverse()
+      local pos=-26
+      local prev=1
+      while #s>prev+25 do
+        local space=rs:find(" ",pos)
+        if space then
+          table.insert(lines,i,s:sub(prev,#s-space))
+          prev=#s-space+2
+          pos=-(#s-space+28)
+        else
+          table.insert(lines,i,s:sub(prev,prev+25))
+          prev=prev+26
+          pos=pos-26
+        end
+        i=i+1
+      end
+      lines[i]=s:sub(prev)
+    end
+    i=i+1
+  end
+
+  local gui=gml.create("center","center",30,6+#lines)
+
+  local labels={}
+  for i=1,#lines do
+    labels[i]=gui:addLabel(3,1+i,26,lines[i])
+  end
+
+  local buttonObjs={}
+  --now the buttons
+
+  local xpos=3
+  for i=1,#buttons do
+    if type(buttons[i])~="string" then eror("messageBox must be passed an array of strings for buttons",2) end
+    if i==#buttons then xpos=-2 end
+    buttonObjs[i]=gui:addButton(xpos,-2,#buttons[i]+2,1,buttons[i],function() choice=buttons[i] gui.close() end)
+    xpos=xpos+#buttons[i]+3
+  end
+
+  gui:changeFocusTo(buttonObjs[#buttonObjs])
+  gui:run()
+
+  return choice
+end
+
+
+
 return gmlDialogs
 

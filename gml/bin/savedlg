@@ -52,7 +52,7 @@ function filePicker(mode,curDir,name,extension)
 
   local filename=gui:addTextField(22,-2,26,name)
   local fileLabel=gui:addLabel(17,-2,5,"File:")
-  gui:addButton(-2,-1,8,1,"Open",function()
+  gui:addButton(-2,-1,8,1,mode and "Save" or "Open",function()
       --require an actual filename
       local ext=filename.text
       local t=curDir..filename.text
