@@ -47,7 +47,7 @@ gui {
 }
 
 label {
-  text-color: 0xffffff;
+  text-color: 0x000000;
   text-background: 0xb4b4b4;
 }
 
