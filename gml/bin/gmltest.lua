@@ -18,10 +18,6 @@ local function toggleLabel()
   end
 end
 
-local function closeGui()
-  gui.close()
-end
-
 local textField=gui:addTextField("center",4,18)
 
 local button1=gui:addButton(4,6,10,1,"Toggle",toggleLabel)
