@@ -29,7 +29,8 @@ if not repo:match("^[%w-.]*/[%w-.]*$") then
   return
 end
 
-target=args[2] and ("/"..target:match("^/?(.-)/?$").."/") or "/tmp/"..repo
+target=args[2]
+target=target and ("/"..target:match("^/?(.-)/?$").."/") or "/tmp/"..repo
 if filesystem.exists(target) then
   if not filesystem.isDirectory(target) then
     print("target directory already exists and is not a directory.")
