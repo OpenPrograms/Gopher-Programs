@@ -205,7 +205,38 @@ function gmlDialogs.messageBox(message,buttons)
   return choice
 end
 
+---
+-- A simple selection box, displays a message and listbox with selectable options.
+-- Returns the label of the selected listbox option and nil if the cancel button was pressed.
+function gmlDialogs.listSelection(message, listContent)
+  checkArg(1, message, "string")
+  checkArg(2, listContent, "nil", "table")
+  
+  local result=nil
 
+  local gui=gml.create("center", "center", 50, 16)
+
+  local messageLabel = gui:addLabel("center", 1, string.len(message), message)
+  
+  local listContentTable = { }
+  for key, var in pairs(listContent) do
+    table.insert(listContentTable, var)
+  end
+  
+  local selectionList=gui:addListBox(1, 2 + messageLabel.posY, gui.width, 10, listContentTable)
+  
+  gui:addButton(4, -1, 8, 1, "Cancel", gui.close)
+  
+  gui:addButton(-4, -1, 8, 1, "Select", function()
+      local t=selectionList:getSelected()
+      result=t
+      gui.close()
+    end)
+  
+  gui:run()
+
+  return result
+end
 
 return gmlDialogs
 
