@@ -238,5 +238,33 @@ function gmlDialogs.listSelection(message, listContent)
   return result
 end
 
+---
+-- A simple text inputbox, displays a message and textfield.
+-- Returns text from the textfield and nil if the cancel button was pressed.
+function gmlDialogs.inputBox(message, defaultValue)
+  checkArg(1, message, "string")
+  checkArg(2, defaultValue, "string")
+  
+  local result = nil
+
+  local gui = gml.create("center", "center", 50, 7)
+
+  local messageLabel = gui:addLabel("center", 1, string.len(message), message)
+  
+  local textInput = gui:addTextField(2, messageLabel.posY + 2 , gui.width - 4, defaultValue)
+  
+  gui:addButton(4, textInput.posY + 2, 8, 1, "Cancel", gui.close)
+  
+  gui:addButton(-4, textInput.posY + 2, 8, 1, "OK", function()
+      local t = textInput.text
+      result = t
+      gui.close()
+    end)
+  
+  gui:run()
+
+  return result
+end
+
 return gmlDialogs
 
