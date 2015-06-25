@@ -1634,7 +1634,7 @@ end
 
 --**********************
 
-defaultStyle=gml.loadStyle("gml/default")
+defaultStyle=gml.loadStyle("default")
 screen.style=defaultStyle
 
 return gml
