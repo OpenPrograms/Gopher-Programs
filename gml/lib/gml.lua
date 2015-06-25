@@ -25,7 +25,7 @@ local shell=require("shell")
 local filesystem=require("filesystem")
 local keyboard=require("keyboard")
 local unicode=require("unicode")
-local gfxbuffer=require("gml.gfxbuffer")
+local gfxbuffer=require("gfxbuffer")
 local process = require("process")
 
 local len = unicode.len
