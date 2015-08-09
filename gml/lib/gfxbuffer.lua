@@ -1,24 +1,27 @@
 local component=require("component")
 local unicode=require("unicode")
-
-local colorutils=require("colorutils")
+local len = unicode.len
 
 local buffer={VERSION="1.0"}
 local bufferMeta={}
 
 local debugPrint=function() end
 
---copy these to file local, they're called a lot in performance-intensive loops
-local convColor_hto8=colorutils.convColor_hto8
-local convColor_8toh=colorutils.convColor_8toh
 
+local function convColor_8toh(hex)
+  local r,g,b=bit32.rshift(hex,16),bit32.rshift(hex,8)%256,hex%256
+  r=round(r*7/255)
+  g=round(g*7/255)
+  b=round(b*3/255)
+  return r*32+g*4+b
+end
 
 local function encodeColor(fg,bg)
-  return convColor_hto8(bg)*256+convColor_hto8(fg)
+  return bg*0x1000000+fg
 end
 
 local function decodeColor(c)
-  return convColor_8toh(math.floor(c/256)),convColor_8toh(c%256)
+  return math.floor(c/0x1000000),c%0x1000000
 end
 
 
@@ -68,7 +71,7 @@ function bufferMeta.set(buffer,x,y,str)
 
   local spanI=1
   local color=buffer.color
-  local e=x+unicode.len(str)-1
+  local e=x+len(str)-1
 
   while spans[spanI] and (spans[spanI].y<y or spans[spanI].y==y and spans[spanI].e<x) do
     spanI=spanI+1
@@ -105,19 +108,19 @@ function bufferMeta.set(buffer,x,y,str)
         --but first, split this guy as needed
         debugPrint("can't merge. Splitting")
         local a,b=unicode.sub(span.str,1,math.max(0,x-span.x)),unicode.sub(span.str,e-span.x+2)
-        if unicode.len(a)>0 then
+        if len(a)>0 then
           span.str=a
-          span.e=span.x+unicode.len(a)
+          span.e=span.x+len(a)
           --span is a new span
           span={str=true,e=true,x=true,y=y,color=span.color}
           --insert after this span
           spanI=spanI+1
           table.insert(spans,spanI,span)
         end
-        if unicode.len(b)>0 then
+        if len(b)>0 then
           span.str=b
           span.x=e+1
-          span.e=span.x+unicode.len(b)
+          span.e=span.x+len(b)
 
           --and another new span
           span={str=true,e=true,x=true,y=y,color=color}
