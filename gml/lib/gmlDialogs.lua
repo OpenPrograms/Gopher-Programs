@@ -146,6 +146,36 @@ function gmlDialogs.filePicker(mode,curDir,name,extension)
   return result
 end
 
+function splitToLines(message, lineWidth)
+  --do some figuring
+  local lines={}
+  message:gsub("([^\n]+)",function(line) lines[#lines+1]=line end)
+  local i=1
+  while i<=#lines do
+    if #lines[i]>lineWidth then
+      local s,rs=lines[i],lines[i]:reverse()
+      local pos=-lineWidth
+      local prev=1
+      while #s>prev+lineWidth-1 do
+        local space=rs:find(" ",pos)
+        if space then
+          table.insert(lines,i,s:sub(prev,#s-space))
+          prev=#s-space+2
+          pos=-(#s-space+lineWidth+2)
+        else
+          table.insert(lines,i,s:sub(prev,prev+lineWidth-1))
+          prev=prev+lineWidth
+          pos=pos-lineWidth
+        end
+        i=i+1
+      end
+      lines[i]=s:sub(prev)
+    end
+    i=i+1
+  end
+  
+  return lines
+end
 
 function gmlDialogs.messageBox(message,buttons)
   checkArg(1,message,"string")
@@ -154,38 +184,13 @@ function gmlDialogs.messageBox(message,buttons)
   local buttons=buttons or {"cancel","ok"}
   local choice
 
-  --do some figuring
-  local lines={}
-  message:gsub("([^\n]+)",function(line) lines[#lines+1]=line end)
-  local i=1
-  while i<=#lines do
-    if #lines[i]>26 then
-      local s,rs=lines[i],lines[i]:reverse()
-      local pos=-26
-      local prev=1
-      while #s>prev+25 do
-        local space=rs:find(" ",pos)
-        if space then
-          table.insert(lines,i,s:sub(prev,#s-space))
-          prev=#s-space+2
-          pos=-(#s-space+28)
-        else
-          table.insert(lines,i,s:sub(prev,prev+25))
-          prev=prev+26
-          pos=pos-26
-        end
-        i=i+1
-      end
-      lines[i]=s:sub(prev)
-    end
-    i=i+1
-  end
+  local lines = splitToLines(message, 30 - 4)
 
   local gui=gml.create("center","center",30,6+#lines)
 
   local labels={}
   for i=1,#lines do
-    labels[i]=gui:addLabel(2,1+i,26,lines[i])
+    labels[i]=gui:addLabel(2,1+i,#lines[i],lines[i])
   end
 
   local buttonObjs={}
@@ -205,7 +210,72 @@ function gmlDialogs.messageBox(message,buttons)
   return choice
 end
 
+---
+-- A simple selection box, displays a message and listbox with selectable options.
+-- Returns the label of the selected listbox option and nil if the cancel button was pressed.
+function gmlDialogs.listSelection(message, listContent)
+  checkArg(1,message,"string")
+  checkArg(2,listContent,"nil","table")
+  
+  local result=nil
 
+  local gui=gml.create("center", "center", 50, 16)
+
+  local messageLabel = gui:addLabel("center", 1, string.len(message), message)
+  
+  local listContentTable = { }
+  for key, var in pairs(listContent) do
+    table.insert(listContentTable, var)
+  end
+  
+  local selectionList=gui:addListBox(1, 2 + messageLabel.posY, gui.width, 10, listContentTable)
+  
+  gui:addButton(4, -1, 8, 1, "Cancel", gui.close)
+  
+  gui:addButton(-4, -1, 8, 1, "Select", function()
+      local t=selectionList:getSelected()
+      result=t
+      gui.close()
+    end)
+  
+  gui:run()
+
+  return result
+end
+
+---
+-- A simple text inputbox, displays a message and textfield.
+-- Returns text from the textfield and nil if the cancel button was pressed.
+function gmlDialogs.inputBox(message, defaultValue)
+  checkArg(1, message, "string")
+  checkArg(2, defaultValue, "string", "nil")
+  
+  local result = nil
+  
+  local lines = splitToLines(message, 50 - 4)
+
+  local gui=gml.create("center", "center", 50, 8 + #lines)
+
+  local labels={}
+  for i=1,#lines do
+    labels[i]=gui:addLabel(2,1+i,#lines[i],lines[i])
+  end
+  
+  if defaultValue == nil then defaultValue = "" end
+  
+  local textInput = gui:addTextField(2, labels[#lines].posY + 2 , gui.width - 4, defaultValue)
+  
+  gui:addButton(4, textInput.posY + 2, 8, 1, "Cancel", gui.close)
+  
+  gui:addButton(-4, textInput.posY + 2, 8, 1, "OK", function()
+      local t = textInput.text
+      result = t
+      gui.close()
+    end)
+  
+  gui:run()
+
+  return result
+end
 
 return gmlDialogs
-
