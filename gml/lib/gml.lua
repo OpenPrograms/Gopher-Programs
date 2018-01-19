@@ -860,7 +860,11 @@ local function runGui(gui)
       end
       draggingObj=nil
       dragging=false
-
+    elseif e[1]=="clipboard" then
+      local text = e[3]
+      if gui.focusElement and gui.focusElement.doPaste then
+          gui.focusElement:doPaste(text)
+      end
     elseif e[1]=="key_down" then
       local char,code=e[3],e[4]
       --tab
