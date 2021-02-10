@@ -9,7 +9,13 @@ local debugPrint=function() end
 
 
 local function convColor_8toh(hex)
-  local r,g,b=bit32.rshift(hex,16),bit32.rshift(hex,8)%256,hex%256
+  local r, g, b
+  if bit32
+  then
+    r,g,b=bit32.rshift(hex,16),bit32.rshift(hex,8)%256,hex%256
+  else
+    r,g,b=hex>>16,(hex>>8)%256,hex%256
+  end
   r=round(r*7/255)
   g=round(g*7/255)
   b=round(b*3/255)
